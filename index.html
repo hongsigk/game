@@ -981,7 +981,7 @@ games.simon = (() => {
   }
   function over(){
     accept = false; playing = false; const reached = seq.length - 1;
-    if (reached > best){ best = reached; try { localStorage.setItem('sunwoo-simon-best', best); } catch(e){} $('#si-best').textContent = best; }
+    if (reached > best){ best = reached; try { localStorage.setItem('sunwoo-simon-best', best); } catch(e){} $('#si-best').textContent = best; if (reached >= 3) party.go(); }
     $('#si-msg').textContent = `앗! ${reached}단계까지 성공했어요` + (reached && reached === best ? ' 🏆 최고 기록!' : '');
     g.classList.add('idle'); $('#si-start').textContent = '다시 하기'; $('#si-start').style.visibility = 'visible';
   }
@@ -1088,7 +1088,7 @@ games.breakout = (() => {
     ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0, H*0.42, W, 56); ctx.fillStyle = '#fff'; ctx.font = '700 22px "Gowun Dodum", sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('아쉬워요! 다시 해 볼까요?', W/2, H*0.42 + 36); }
   function win(){ running = false; ball = null; revealed = true; draw();
-    ctx.fillStyle = '#fff'; ctx.font = '700 24px "Gowun Dodum", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎉 선우 완성!', W/2, W + (H-W)/2 + 8);
+    ctx.fillStyle = '#fff'; ctx.font = '700 24px "Gowun Dodum", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎉 선우 완성!', W/2, W + (H-W)/2 + 8); party.go();
     $('#b-start').textContent = '한 번 더'; $('#b-start').style.visibility = 'visible'; }
   function aim(e){ const r = cv.getBoundingClientRect(); paddle.x = Math.min(1 - paddle.w/2, Math.max(paddle.w/2, (e.clientX - r.left) / r.width)); if (!running) draw(); }
   cv.addEventListener('pointermove', aim); cv.addEventListener('pointerdown', e => { aim(e); if (!running && $('#b-start').style.visibility !== 'hidden' && ball === null && bricks.some(b=>b.alive) && lives > 0) start(); });
@@ -1163,6 +1163,83 @@ games.month = (() => {
     btn.disabled = false;
   });
   load(); setInterval(() => { if ($('#s-home').classList.contains('on') && !document.hidden) load(); }, 30000);
+})();
+
+/* ---------- 축하: 꽃가루 + 팡파레 ---------- */
+const party = (() => {
+  let cv = null, cx = null, parts = [], raf = 0, ac = null;
+  const COLORS = ['#f6c344','#ef7a85','#7cc6f2','#9be3a5','#c79bf2','#ffa25c','#ffffff'];
+  function canvas(){
+    if (cv) return;
+    cv = document.createElement('canvas'); cv.setAttribute('aria-hidden','true');
+    cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+    document.body.appendChild(cv); cx = cv.getContext('2d');
+  }
+  function burst(){
+    canvas(); const d = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = innerWidth * d; cv.height = innerHeight * d; cx.setTransform(d,0,0,d,0,0);
+    const few = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const n = few ? 40 : 160, W = innerWidth, H = innerHeight;
+    for (let i = 0; i < n; i++){
+      const side = i % 2 ? 1 : -1, fromSide = i < n * 0.6;
+      parts.push({
+        x: fromSide ? (side < 0 ? 0 : W) : Math.random() * W,
+        y: fromSide ? H * 0.75 : -20 - Math.random() * H * 0.5,
+        vx: fromSide ? -side * (4 + Math.random() * 7) : (Math.random() - .5) * 2,
+        vy: fromSide ? -(9 + Math.random() * 9) : 1 + Math.random() * 2,
+        r: Math.random() * Math.PI, vr: (Math.random() - .5) * .3,
+        w: 6 + Math.random() * 6, h: 4 + Math.random() * 6,
+        c: COLORS[Math.floor(Math.random() * COLORS.length)],
+        shape: Math.random() < .25 ? 'flower' : Math.random() < .5 ? 'dot' : 'rect',
+        life: 0
+      });
+    }
+    if (!raf) raf = requestAnimationFrame(step);
+  }
+  function step(){
+    cx.clearRect(0, 0, innerWidth, innerHeight);
+    parts = parts.filter(p => p.y < innerHeight + 30 && p.life < 420);
+    for (const p of parts){
+      p.life++; p.vy += .22; p.vx *= .985; p.vy = Math.min(p.vy, 3.2 + p.w * .1);
+      p.x += p.vx + Math.sin(p.life / 12 + p.w) * .6; p.y += p.vy; p.r += p.vr;
+      cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c;
+      if (p.shape === 'dot'){ cx.beginPath(); cx.arc(0, 0, p.h / 2 + 1, 0, 7); cx.fill(); }
+      else if (p.shape === 'flower'){ cx.font = `${p.w + 8}px sans-serif`; cx.fillText(p.w > 9 ? '🌸' : '✿', -p.w/2, p.w/2); }
+      else { cx.scale(1, Math.cos(p.life / 6)); cx.fillRect(-p.w/2, -p.h/2, p.w, p.h); }
+      cx.restore();
+    }
+    raf = parts.length ? requestAnimationFrame(step) : (cx.clearRect(0, 0, innerWidth, innerHeight), 0);
+  }
+  function fanfare(){
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      const t0 = ac.currentTime + .05, out = ac.createGain(); out.gain.value = .22; out.connect(ac.destination);
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600; lp.connect(out);
+      // 빠-바-바-밤! 빠바밤~
+      const notes = [[523.25,0,.12],[523.25,.14,.12],[523.25,.28,.12],[659.25,.42,.36],[587.33,.82,.14],[659.25,.98,.14],[783.99,1.14,.8]];
+      const chord = [523.25, 659.25, 783.99, 1046.5];
+      const tone = (f, s, d, type, g) => {
+        const o = ac.createOscillator(), e = ac.createGain();
+        o.type = type; o.frequency.value = f; o.connect(e); e.connect(lp);
+        e.gain.setValueAtTime(0, t0 + s); e.gain.linearRampToValueAtTime(g, t0 + s + .02);
+        e.gain.setValueAtTime(g, t0 + s + d * .7); e.gain.exponentialRampToValueAtTime(.001, t0 + s + d);
+        o.start(t0 + s); o.stop(t0 + s + d + .05);
+      };
+      notes.forEach(([f, s, d]) => { tone(f, s, d, 'sawtooth', .35); tone(f * 2, s, d, 'square', .06); });
+      chord.forEach(f => tone(f, 1.14, 1.1, 'triangle', .22));
+    } catch (e) {}
+  }
+  function go(){ burst(); fanfare(); setTimeout(burst, 900); }
+  // 어느 게임이든 완성 화면(.win)이 뜨면 축하
+  const seen = new WeakSet();
+  const mo = new MutationObserver(ms => ms.forEach(m => {
+    const el = m.target;
+    if (el.classList.contains('show')){ if (!seen.has(el)){ seen.add(el); go(); } }
+    else seen.delete(el);
+  }));
+  document.querySelectorAll('.win').forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
+  return { go };
 })();
 
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => Object.values(games).forEach(g => g.resize()), 150); });
