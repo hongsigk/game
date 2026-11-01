@@ -189,6 +189,20 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
 .spad.lit{filter:none;transform:scale(1.04);box-shadow:0 0 0 5px var(--accent),0 8px 24px rgba(0,0,0,.25)}
 .sgrid.idle .spad{filter:none}
 .slevel{font-size:18px;margin:12px 0;text-align:center;min-height:1.5em}
+/* odd one */
+.dgrid{display:grid;gap:4px;width:var(--w)}
+.dtile{aspect-ratio:1;border:0;padding:0;border-radius:6px;background-size:cover;background-position:center;cursor:pointer}
+.dtile.flip{transform:scaleX(-1)}
+.dtile.hit{box-shadow:0 0 0 4px #4caf50;position:relative;z-index:1}
+.dtile.miss{animation:shake .35s}
+/* breakout */
+.bcanvas{width:var(--w);height:calc(var(--w) * 1.25);border-radius:14px;touch-action:none;display:block;box-shadow:0 6px 24px rgba(0,0,0,.1);background:#222}
+/* month quiz */
+.qphoto{width:var(--w);aspect-ratio:1;border-radius:14px;background-size:cover;background-position:center;box-shadow:0 6px 24px rgba(0,0,0,.1);margin-bottom:14px}
+.qopts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;width:var(--w)}
+.qopts button{font:inherit;font-size:20px;padding:14px;border-radius:14px;border:2px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.qopts button.ok{border-color:#4caf50;background:color-mix(in srgb,#4caf50 18%,var(--paper))}
+.qopts button.no{border-color:var(--wrong);animation:shake .4s}
 /* guestbook */
 .gb{width:100%;max-width:560px;margin-top:28px;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px}
 .gb h3{margin:0 0 2px;font-size:19px}
@@ -233,6 +247,9 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
     <button class="gcard" data-go="order"><div class="ic">📅</div><b>자라는 순서 맞추기</b><span>어릴 때 사진부터 차례로 눌러요</span></button>
     <button class="gcard" data-go="halves"><div class="ic">✂️</div><b>반쪽 얼굴 맞추기</b><span>위 얼굴과 아래 얼굴 짝 찾기</span></button>
     <button class="gcard" data-go="simon"><div class="ic">🎵</div><b>따라 누르기</b><span>반짝이는 순서를 기억해서 똑같이!</span></button>
+    <button class="gcard" data-go="odd"><div class="ic">👀</div><b>다른 하나 찾기</b><span>똑같은 선우들 사이에 하나만 달라요</span></button>
+    <button class="gcard" data-go="breakout"><div class="ic">🧱</div><b>벽돌 깨기</b><span>벽돌을 깨면 숨은 사진이 보여요</span></button>
+    <button class="gcard" data-go="month"><div class="ic">🗓️</div><b>몇 월의 선우?</b><span>사진을 보고 찍은 달을 맞혀요</span></button>
     <button class="gcard" data-go="zoom"><div class="ic">🔍</div><b>확대 사진 맞히기</b><span>확대된 일부만 보고 어떤 사진인지 맞혀요</span></button>
   </div>
   <div class="gb" id="gb" hidden>
@@ -372,6 +389,38 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
   <div class="sgrid idle" id="si-grid"></div>
   <p class="slevel" id="si-msg"></p>
   <div style="text-align:center"><button class="btn big" id="si-start">시작!</button></div>
+</section>
+
+<!-- ODD -->
+<section class="screen" id="s-odd">
+  <button class="back" data-go="home">← 게임 목록</button>
+  <h2 class="gt">다른 하나 찾기</h2>
+  <p class="sub">하나만 다른 사진을 찾아 눌러요. 단계가 오를수록 칸이 많아지고, 나중엔 좌우가 뒤집힌 사진을 찾아야 해요</p>
+  <div class="stats"><span>남은 시간 <b id="d-time">60</b>초</span><span>단계 <b id="d-level">0</b></span><span>최고 <b id="d-best">0</b></span></div>
+  <div class="dgrid" id="d-grid"></div>
+  <div style="margin-top:16px;text-align:center"><button class="btn big" id="d-start">시작!</button></div>
+  <div class="win" id="d-win"><h3 id="d-wintitle">🎉 끝!</h3><p id="d-winmsg"></p></div>
+</section>
+
+<!-- BREAKOUT -->
+<section class="screen" id="s-breakout">
+  <button class="back" data-go="home">← 게임 목록</button>
+  <h2 class="gt">벽돌 깨기</h2>
+  <p class="sub">손가락이나 마우스로 받침대를 움직여 공을 튕겨요. 벽돌을 다 깨면 선우가 나와요</p>
+  <div class="stats"><span>목숨 <b id="b-lives">❤️❤️❤️</b></span><span>남은 벽돌 <b id="b-left">0</b></span></div>
+  <canvas class="bcanvas" id="b-canvas"></canvas>
+  <div class="bar" style="margin-top:12px"><button class="btn big" id="b-start">시작!</button><button class="btn" id="b-new">다른 사진</button></div>
+</section>
+
+<!-- MONTH -->
+<section class="screen" id="s-month">
+  <button class="back" data-go="home">← 게임 목록</button>
+  <h2 class="gt">몇 월의 선우?</h2>
+  <p class="sub">이 사진은 몇 월에 찍었을까요?</p>
+  <div class="stats"><span>문제 <b id="q-round">1/8</b></span><span>점수 <b id="q-score">0</b></span></div>
+  <div class="qphoto" id="q-photo"></div>
+  <div class="qopts" id="q-opts"></div>
+  <div class="win" id="q-win"><h3>🎉 다 풀었어요!</h3><p id="q-winmsg"></p><button class="btn" id="q-again">한 번 더</button></div>
 </section>
 
 <!-- ZOOM -->
@@ -939,6 +988,140 @@ games.simon = (() => {
   $('#si-start').onclick = start;
   return { enter(){ size(); }, resize: size, leave(){ if (playing){ playing = false; accept = false; g.classList.add('idle');
     $('#si-msg').textContent = ''; $('#si-start').textContent = '시작!'; $('#si-start').style.visibility = 'visible'; } } };
+})();
+
+/* ---------- ODD ONE ---------- */
+games.odd = (() => {
+  let level = 0, left = 60, running = false, tick = null, best = 0, answer = -1;
+  try { best = +localStorage.getItem('sunwoo-odd-best') || 0; } catch(e){}
+  $('#d-best').textContent = best;
+  const g = $('#d-grid');
+  function size(){ g.style.setProperty('--w', Math.min(vw()-32, 440)+'px'); }
+  function board(){
+    const n = Math.min(2 + level, 7), base = Math.floor(Math.random()*ALL.length);
+    const mirror = level >= 4;                       // later levels: find the mirrored one
+    let other = base; while (!mirror && other === base) other = Math.floor(Math.random()*ALL.length);
+    answer = Math.floor(Math.random()*n*n);
+    g.style.gridTemplateColumns = `repeat(${n}, 1fr)`; g.style.gap = (n > 5 ? 3 : 5) + 'px'; g.innerHTML = '';
+    for (let k=0;k<n*n;k++){ const b = document.createElement('button'); b.className = 'dtile'; b.setAttribute('aria-label','사진');
+      b.style.backgroundImage = `url(${ALL[k === answer && !mirror ? other : base]})`;
+      if (k === answer && mirror) b.classList.add('flip');
+      b.onclick = () => tap(k, b); g.appendChild(b); }
+  }
+  function tap(k, b){
+    if (!running) return;
+    if (k === answer){ b.classList.add('hit'); level++; $('#d-level').textContent = level; left = Math.min(99, left + 2); $('#d-time').textContent = left;
+      running = false; setTimeout(() => { running = true; board(); }, 350); }
+    else { b.classList.remove('miss'); void b.offsetWidth; b.classList.add('miss'); left = Math.max(0, left - 3); $('#d-time').textContent = left; if (left <= 0) end(); }
+  }
+  function start(){ level = 0; left = 60; running = true; $('#d-level').textContent = 0; $('#d-time').textContent = 60; $('#d-win').classList.remove('show');
+    $('#d-start').style.visibility = 'hidden'; board(); clearInterval(tick);
+    tick = setInterval(() => { left--; $('#d-time').textContent = left; if (left <= 0) end(); }, 1000); }
+  function end(){
+    running = false; clearInterval(tick);
+    const c = g.children[answer]; if (c) c.classList.add('hit');
+    const nb = level > best; if (nb){ best = level; try { localStorage.setItem('sunwoo-odd-best', best); } catch(e){} $('#d-best').textContent = best; }
+    $('#d-wintitle').textContent = nb ? '🏆 최고 기록!' : '⏰ 시간 끝!'; $('#d-winmsg').textContent = `${level}단계까지 찾았어요`;
+    $('#d-win').classList.add('show'); $('#d-start').textContent = '다시 하기'; $('#d-start').style.visibility = 'visible';
+  }
+  $('#d-start').onclick = start;
+  return { enter(){ size(); if (!g.children.length){ level = 0; board(); } }, resize: size, leave(){ if (running) end(); } };
+})();
+
+/* ---------- BREAKOUT ---------- */
+games.breakout = (() => {
+  const cv = $('#b-canvas'), ctx = cv.getContext('2d'), COLS = 7, ROWS = 8;
+  const COLORS = ['#f6c667','#f3a683','#f7d794','#9fd8cb','#b8c0ff','#ffb4c2','#c3e88d','#ffd6a5'];
+  let W = 0, H = 0, img = new Image(), imgIdx = 0, bricks = [], ball = null, paddle = { x: 0.5, w: 0.24 }, lives = 3, running = false, raf = null, last = 0, revealed = false, dpr = 1;
+  function size(){
+    const w = Math.min(vw()-32, 420); cv.style.setProperty('--w', w+'px');
+    dpr = Math.min(window.devicePixelRatio || 1, 2); W = w; H = Math.round(w * 1.25);
+    cv.width = W*dpr; cv.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); if (!running) draw();
+  }
+  function newPhoto(){ imgIdx = Math.floor(Math.random()*ALL.length); img = new Image(); img.onload = () => draw(); img.src = ALL[imgIdx]; reset(); }
+  function reset(){
+    running = false; cancelAnimationFrame(raf); lives = 3; revealed = false;
+    bricks = []; for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) bricks.push({r, c, alive: true});
+    paddle = { x: 0.5, w: 0.24 }; ball = null; hud(); draw();
+    $('#b-start').textContent = '시작!'; $('#b-start').style.visibility = 'visible';
+  }
+  function hud(){ $('#b-lives').textContent = '❤️'.repeat(lives) + '🤍'.repeat(3-lives); $('#b-left').textContent = bricks.filter(b => b.alive).length; }
+  function serve(){ ball = { x: 0.5, y: 0.82, vx: (Math.random() < .5 ? -1 : 1) * 0.28, vy: -0.48, r: 0.022 }; }
+  const area = () => ({ bw: W / COLS, bh: W / ROWS });          // bricks cover the square photo area (top W x W)
+  function draw(){
+    if (!W) return; ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#2b2622'; ctx.fillRect(0,0,W,H);
+    if (img.complete && img.naturalWidth) ctx.drawImage(img, 0, 0, W, W);
+    const {bw, bh} = area();
+    bricks.forEach(b => { if (!b.alive) return; ctx.fillStyle = COLORS[b.r % COLORS.length];
+      ctx.fillRect(b.c*bw+1, b.r*bh+1, bw-2, bh-2); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(b.c*bw+1, b.r*bh+1, bw-2, 3); });
+    if (revealed) return;
+    const py = H - 22, pw = paddle.w * W;
+    ctx.fillStyle = '#f0b54b'; roundRect(paddle.x*W - pw/2, py, pw, 12, 6);
+    if (ball){ ctx.beginPath(); ctx.arc(ball.x*W, ball.y*H, ball.r*W, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill(); }
+  }
+  function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.fill(); }
+  function step(dt){
+    const b = ball; if (!b) return;
+    const speedUp = 1 + (COLS*ROWS - bricks.filter(x => x.alive).length) * 0.008;
+    b.x += b.vx * dt * speedUp; b.y += b.vy * dt * speedUp * (W/H);
+    const rx = b.r, ry = b.r * W / H;
+    if (b.x < rx){ b.x = rx; b.vx = Math.abs(b.vx); } if (b.x > 1-rx){ b.x = 1-rx; b.vx = -Math.abs(b.vx); }
+    if (b.y < ry){ b.y = ry; b.vy = Math.abs(b.vy); }
+    const py = (H - 22) / H;
+    if (b.vy > 0 && b.y + ry >= py && b.y + ry <= py + 14/H + 0.02 && Math.abs(b.x - paddle.x) <= paddle.w/2 + rx){
+      const off = (b.x - paddle.x) / (paddle.w/2); const sp = Math.hypot(b.vx, b.vy);
+      const ang = off * 1.05; b.vx = sp * Math.sin(ang); b.vy = -sp * Math.cos(ang); b.y = py - ry;
+    }
+    if (b.y > 1 + ry){ lives--; hud(); if (lives <= 0) return over(); serve(); }
+    const {bw, bh} = area(); const px = b.x*W, pyy = b.y*H, pr = b.r*W;
+    for (const k of bricks){ if (!k.alive) continue;
+      const x0 = k.c*bw, y0 = k.r*bh, cx = Math.max(x0, Math.min(px, x0+bw)), cy = Math.max(y0, Math.min(pyy, y0+bh));
+      if ((px-cx)**2 + (pyy-cy)**2 <= pr*pr){ k.alive = false; hud();
+        if (cx === x0 || cx === x0+bw) b.vx = -b.vx; else b.vy = -b.vy;
+        if (!bricks.some(x => x.alive)) return win(); break; } }
+  }
+  function loop(ts){ const dt = Math.min(0.033, (ts - last)/1000); last = ts; step(dt); draw(); if (running) raf = requestAnimationFrame(loop); }
+  function start(){ if (!bricks.some(b => b.alive) || lives <= 0) reset(); serve(); running = true; $('#b-start').style.visibility = 'hidden';
+    last = performance.now(); raf = requestAnimationFrame(loop); }
+  function over(){ running = false; ball = null; draw(); $('#b-start').textContent = '다시 하기'; $('#b-start').style.visibility = 'visible';
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0, H*0.42, W, 56); ctx.fillStyle = '#fff'; ctx.font = '700 22px "Gowun Dodum", sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('아쉬워요! 다시 해 볼까요?', W/2, H*0.42 + 36); }
+  function win(){ running = false; ball = null; revealed = true; draw();
+    ctx.fillStyle = '#fff'; ctx.font = '700 24px "Gowun Dodum", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎉 선우 완성!', W/2, W + (H-W)/2 + 8);
+    $('#b-start').textContent = '한 번 더'; $('#b-start').style.visibility = 'visible'; }
+  function aim(e){ const r = cv.getBoundingClientRect(); paddle.x = Math.min(1 - paddle.w/2, Math.max(paddle.w/2, (e.clientX - r.left) / r.width)); if (!running) draw(); }
+  cv.addEventListener('pointermove', aim); cv.addEventListener('pointerdown', e => { aim(e); if (!running && $('#b-start').style.visibility !== 'hidden' && ball === null && bricks.some(b=>b.alive) && lives > 0) start(); });
+  $('#b-start').onclick = () => { if (revealed) newPhoto(); start(); };
+  $('#b-new').onclick = newPhoto;
+  let built = false;
+  return { enter(){ size(); if (!built){ built = true; newPhoto(); } }, resize: size,
+    leave(){ if (running){ running = false; cancelAnimationFrame(raf); $('#b-start').textContent = '계속하기'; $('#b-start').style.visibility = 'visible'; } } };
+})();
+
+/* ---------- MONTH QUIZ ---------- */
+games.month = (() => {
+  const ROUNDS = 8; let order = [], round = 0, score = 0, busy = false, built = false;
+  const M = DATA.dates.map(s => new Date(s).getMonth() + 1);
+  const months = [...new Set(M)].sort((a,b) => a-b);
+  function size(){ ['#q-photo','#q-opts'].forEach(s => $(s).style.setProperty('--w', Math.min(vw()-32, 400)+'px')); }
+  function start(){ built = true; order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#q-score').textContent = 0; $('#q-win').classList.remove('show'); next(); }
+  function next(){
+    busy = false; const i = order[round], ans = M[i]; $('#q-round').textContent = `${round+1}/${ROUNDS}`;
+    $('#q-photo').style.backgroundImage = `url(${ALL[i]})`;
+    const near = months.filter(m => m !== ans).sort((a,b) => Math.abs(a-ans) - Math.abs(b-ans)).slice(0, 5);
+    const opts = shuffle([ans, ...shuffle(near).slice(0, 3)]).sort((a,b) => a-b);
+    const box = $('#q-opts'); box.innerHTML = '';
+    opts.forEach(m => { const b = document.createElement('button'); b.textContent = `${m}월`; b.onclick = () => pick(m, b, ans); box.appendChild(b); });
+  }
+  function pick(m, b, ans){
+    if (busy) return; busy = true;
+    if (m === ans){ score++; $('#q-score').textContent = score; b.classList.add('ok'); }
+    else { b.classList.add('no'); [...$('#q-opts').children].find(x => x.textContent === `${ans}월`).classList.add('ok'); }
+    setTimeout(() => { round++; if (round < ROUNDS) next(); else { $('#q-winmsg').textContent = `${ROUNDS}문제 중 ${score}개 맞혔어요`; $('#q-win').classList.add('show'); } }, 1200);
+  }
+  $('#q-again').onclick = start;
+  return { enter(){ size(); if (!built) start(); }, resize: size };
 })();
 
 /* ---------- GUESTBOOK ---------- */
