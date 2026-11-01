@@ -809,7 +809,7 @@ games.whack = (() => {
   function end(){
     running = false; clearInterval(tickId); clearTimeout(spawnId);
     moles.forEach(m => { m.up = false; clearTimeout(m.t); m.el.classList.remove('up'); });
-    const nb = score > best; if (nb){ best = score; try { localStorage.setItem('sunwoo-whack-best', best); } catch(e){} $('#w-best').textContent = best; }
+    const nb = score > best; if (nb){ best = score; try { localStorage.setItem('sunwoo-whack-best', best); } catch(e){} $('#w-best').textContent = best; if (score > 0) party.go(); }
     $('#w-wintitle').textContent = nb ? '🏆 최고 기록!' : '🎉 끝!';
     $('#w-winmsg').textContent = `선우를 ${score}점만큼 잡았어요`; $('#w-win').classList.add('show');
     $('#w-start').textContent = '다시 하기'; $('#w-start').style.visibility = 'visible';
@@ -1020,7 +1020,7 @@ games.odd = (() => {
   function end(){
     running = false; clearInterval(tick);
     const c = g.children[answer]; if (c) c.classList.add('hit');
-    const nb = level > best; if (nb){ best = level; try { localStorage.setItem('sunwoo-odd-best', best); } catch(e){} $('#d-best').textContent = best; }
+    const nb = level > best; if (nb){ best = level; try { localStorage.setItem('sunwoo-odd-best', best); } catch(e){} $('#d-best').textContent = best; if (level > 0) party.go(); }
     $('#d-wintitle').textContent = nb ? '🏆 최고 기록!' : '⏰ 시간 끝!'; $('#d-winmsg').textContent = `${level}단계까지 찾았어요`;
     $('#d-win').classList.add('show'); $('#d-start').textContent = '다시 하기'; $('#d-start').style.visibility = 'visible';
   }
@@ -1238,7 +1238,7 @@ const party = (() => {
     if (el.classList.contains('show')){ if (!seen.has(el)){ seen.add(el); go(); } }
     else seen.delete(el);
   }));
-  document.querySelectorAll('.win').forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
+  document.querySelectorAll('.win:not(#w-win):not(#d-win)').forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
   return { go };
 })();
 
