@@ -110,6 +110,18 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
 .rk-s{font-variant-numeric:tabular-nums;color:var(--ink)}
 .rk-empty{text-align:center;color:var(--muted);padding:2px 0 4px}
 
+/* mosaic / seen / scratch */
+.mzcv{display:block;width:var(--w);height:var(--w);border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.1);margin-bottom:14px;background:var(--cover);transition:box-shadow .3s}
+.mzcv.ok{box-shadow:0 0 0 5px #4caf50} .mzcv.no{box-shadow:0 0 0 5px var(--wrong)}
+.snphoto{width:var(--w);transition:box-shadow .3s}
+.snphoto.in{animation:pop .35s ease} .snphoto.ok{box-shadow:0 0 0 5px #4caf50} .snphoto.no{box-shadow:0 0 0 5px var(--wrong);animation:shake .4s}
+.snbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:var(--w);margin:0 auto}
+.snbtns[hidden]{display:none} .snbtns .btn{font-size:17px;padding:14px 8px}
+.scwrap{position:relative;width:var(--w);height:var(--w);border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.12)}
+.scphoto{position:absolute;inset:0;background-size:cover;background-position:center}
+#sc-cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.gcard{position:relative}
+.gcard.new::after{content:"NEW";position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;letter-spacing:.5px;color:#fff;background:#e74c3c;border-radius:999px;padding:2px 7px;box-shadow:0 2px 6px rgba(231,76,60,.35);animation:pop .5s ease}
 /* memory */
 .mgrid{display:grid;gap:var(--gap);width:var(--w)}
 .mcard{aspect-ratio:1;perspective:700px;cursor:pointer;border:0;padding:0;background:none}
@@ -278,6 +290,9 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
     <button class="gcard" data-go="breakout"><div class="ic">🧱</div><b>벽돌 깨기</b><span>벽돌을 깨면 숨은 사진이 보여요</span></button>
     <button class="gcard" data-go="month"><div class="ic">🗓️</div><b>몇 월의 선우?</b><span>사진을 보고 찍은 달을 맞혀요</span></button>
     <button class="gcard" data-go="zoom"><div class="ic">🔍</div><b>확대 사진 맞히기</b><span>확대된 일부만 보고 어떤 사진인지 맞혀요</span></button>
+    <button class="gcard" data-go="mosaic"><div class="ic">🟫</div><b>모자이크 사진 맞히기</b><span>점점 또렷해지는 모자이크, 무슨 사진일까?</span></button>
+    <button class="gcard" data-go="seen"><div class="ic">👀</div><b>본 적 있나요?</b><span>처음 보는 사진인지 아까 본 사진인지 기억해요</span></button>
+    <button class="gcard" data-go="scratch"><div class="ic">🪙</div><b>스크래치 복권</b><span>쓱쓱 긁으면 선우가 나와요</span></button>
   </div>
   <div class="gb" id="gb" hidden>
     <h3>💌 가족 방명록</h3>
@@ -462,6 +477,36 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
   <div class="zchoices" id="z-choices"></div>
   <div class="win" id="z-win"><h3>🎉 다 풀었어요!</h3><p id="z-winmsg"></p><button class="btn" id="z-again">한 번 더</button></div>
 </section>
+<section class="screen" id="s-mosaic">
+  <button class="back" data-go="home">← 게임 목록</button>
+  <h2 class="gt">모자이크 사진 맞히기</h2>
+  <p class="sub">뭉개진 모자이크가 점점 또렷해져요. 아래에서 같은 사진을 골라요. 빨리 맞힐수록 점수가 커요</p>
+  <div class="stats"><span>문제 <b id="mz-round">1/8</b></span><span>점수 <b id="mz-score">0</b></span></div>
+  <div class="zbar" id="mz-barw"><i id="mz-bar"></i></div>
+  <canvas class="mzcv" id="mz-cv" aria-label="모자이크 사진"></canvas>
+  <div class="zchoices" id="mz-choices"></div>
+  <div class="win" id="mz-win"><h3>🎉 다 풀었어요!</h3><p id="mz-winmsg"></p><button class="btn" id="mz-again">한 번 더</button></div>
+</section>
+<section class="screen" id="s-seen">
+  <button class="back" data-go="home">← 게임 목록</button>
+  <h2 class="gt">본 적 있나요?</h2>
+  <p class="sub">사진이 한 장씩 나와요. 처음 보는 사진인지, 아까 나왔던 사진인지 맞혀요. 세 번 틀리면 끝!</p>
+  <div class="stats"><span>목숨 <b id="sn-lives">❤️❤️❤️</b></span><span>맞힌 수 <b id="sn-score">0</b></span><span>최고 <b id="sn-best">0</b></span></div>
+  <div class="qphoto snphoto" id="sn-photo"></div>
+  <p class="omsg" id="sn-msg" style="margin:0 0 10px"></p>
+  <div class="snbtns" id="sn-btns" hidden><button class="btn big" id="sn-new">✨ 처음 봐요</button><button class="btn big" id="sn-old">👀 본 적 있어요</button></div>
+  <div style="text-align:center"><button class="btn big" id="sn-start">시작!</button></div>
+  <div class="win" id="sn-win"><h3 id="sn-wintitle">🎉 끝!</h3><p id="sn-winmsg"></p></div>
+</section>
+<section class="screen" id="s-scratch">
+  <button class="back" data-go="home">← 게임 목록</button>
+  <h2 class="gt">스크래치 복권</h2>
+  <p class="sub">손가락이나 마우스로 쓱쓱 긁어서 숨은 선우를 찾아요</p>
+  <div class="stats"><span>긁은 만큼 <b id="sc-pct">0%</b></span></div>
+  <div class="scwrap" id="sc-wrap"><div class="scphoto" id="sc-photo"></div><canvas id="sc-cv" aria-label="긁는 판"></canvas></div>
+  <div style="margin-top:12px;text-align:center"><button class="btn" id="sc-new">다른 복권</button></div>
+  <div class="win" id="sc-win"><h3>🎉 선우 당첨!</h3><p>오늘의 행운은 선우예요</p><button class="btn" id="sc-again">한 장 더</button></div>
+</section>
 
 <script>
 function init(DATA){
@@ -485,11 +530,15 @@ const games = {};
 function go(name){
   Object.entries(games).forEach(([k,g]) => { if (k !== name && g.leave) g.leave(); });
   $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-'+name));
-  if (games[name]){ games[name].enter(); rank.show(name); }
+  if (games[name]){ visit(name); games[name].enter(); rank.show(name); }
   if (location.hash.slice(1) !== name) history.replaceState(null, '', name === 'home' ? location.pathname : '#'+name);
   window.scrollTo(0,0);
 }
 $$('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+const VISITED = (() => { try { return new Set(JSON.parse(localStorage.getItem('sunwoo-visited') || '[]')); } catch(e){ return new Set(); } })();
+function markNew(){ $$('.gcard[data-go]').forEach(b => b.classList.toggle('new', !VISITED.has(b.dataset.go))); }
+function visit(name){ if (VISITED.has(name)) return; VISITED.add(name); try { localStorage.setItem('sunwoo-visited', JSON.stringify([...VISITED])); } catch(e){} markNew(); }
+markNew();
 $('#hero').style.backgroundImage = `url(${PHOTOS[5]})`;
 
 function makePicker(sel, onPick){
@@ -516,7 +565,7 @@ const rank = (() => {
   const RK = {
     nono:{lower:1, v:n=>`${n}×${n}`}, memory:{lower:1, v:n=>`${n}쌍`}, slide:{lower:1, v:n=>`${n}×${n}`}, rotate:{lower:1, v:n=>`${n}×${n}`},
     jigsaw:{lower:1, v:n=>`${n*n}조각`}, halves:{lower:1, v:n=>`${n}장`}, whack:{u:'점'}, order:{u:'개'}, simon:{u:'단계'}, odd:{u:'단계'},
-    breakout:{u:'점'}, month:{u:'개'}, zoom:{u:'점'} };
+    breakout:{u:'점'}, month:{u:'개'}, zoom:{u:'점'}, mosaic:{u:'점'}, seen:{u:'장'} };
   const cur = {}; let recs = [], lastLoad = 0, loading = null;
   const H = on ? { apikey: CFG.key, 'Content-Type': 'application/json' } : null;
   const b64 = u => btoa(String.fromCharCode(...new Uint8Array(u))), u8 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -951,6 +1000,121 @@ games.zoom = (() => {
   return { enter(){ size(); if (!built) start(); }, resize: size };
 })();
 
+/* ---------- MOSAIC ---------- */
+games.mosaic = (() => {
+  const ROUNDS = 8, STEPS = [4, 5, 6, 8, 10, 13, 17, 22, 30, 40], STEP_MS = 900;
+  let order = [], round = 0, score = 0, answer = 0, step = 0, tick = null, busy = false, built = false, img = null, W = 0;
+  const cv = $('#mz-cv'), ctx = cv.getContext('2d'), tmp = document.createElement('canvas'), tctx = tmp.getContext('2d');
+  function size(){ W = Math.min(vw()-32, 420); ['#mz-cv','#mz-choices','#mz-barw'].forEach(s => $(s).style.setProperty('--w', W+'px'));
+    const d = Math.min(devicePixelRatio || 1, 2); cv.width = cv.height = Math.round(W * d); draw(); }
+  function draw(){
+    if (!img || !img.complete || !cv.width) return;
+    const k = busy ? 0 : STEPS[Math.min(step, STEPS.length-1)];
+    ctx.imageSmoothingEnabled = !k ? true : false;
+    if (!k){ ctx.drawImage(img, 0, 0, cv.width, cv.height); return; }
+    tmp.width = tmp.height = k; tctx.imageSmoothingEnabled = true; tctx.drawImage(img, 0, 0, k, k);
+    ctx.drawImage(tmp, 0, 0, k, k, 0, 0, cv.width, cv.height);
+  }
+  function start(){ built = true; order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#mz-score').textContent = 0; $('#mz-win').classList.remove('show'); next(); }
+  function next(){
+    busy = false; step = 0; answer = order[round]; $('#mz-round').textContent = `${round+1}/${ROUNDS}`; cv.className = 'mzcv';
+    img = new Image(); img.onload = draw; img.src = ALL[answer];
+    const opts = shuffle([answer, ...shuffle([...ALL.keys()].filter(i => i !== answer)).slice(0,3)]);
+    const box = $('#mz-choices'); box.innerHTML = '';
+    opts.forEach(i => { const b = document.createElement('button'); b.style.backgroundImage = `url(${ALL[i]})`; b.dataset.i = i; b.setAttribute('aria-label','보기');
+      b.onclick = () => pick(i, b); box.appendChild(b); });
+    bar(); clearInterval(tick);
+    tick = setInterval(() => { step++; bar(); draw(); if (step >= STEPS.length - 1) clearInterval(tick); }, STEP_MS);
+  }
+  const pts = () => Math.max(1, 10 - step);
+  function bar(){ $('#mz-bar').style.width = (pts() * 10) + '%'; }
+  function pick(i, b){
+    if (busy) return; clearInterval(tick); const p = pts(); busy = true; draw();
+    if (i === answer){ score += p; $('#mz-score').textContent = score; b.classList.add('ok'); cv.classList.add('ok'); }
+    else { b.classList.add('no'); cv.classList.add('no'); $(`#mz-choices button[data-i="${answer}"]`).classList.add('ok'); }
+    setTimeout(() => { round++; if (round < ROUNDS) next(); else {
+      $('#mz-winmsg').textContent = `${ROUNDS}문제 · ${score}점 (최대 ${ROUNDS*10}점)`; rank.add('mosaic', score); $('#mz-win').classList.add('show'); } }, 1300);
+  }
+  $('#mz-again').onclick = start;
+  return { enter(){ size(); if (!built) start(); }, resize: size, leave(){ clearInterval(tick); if (built && !busy && round < ROUNDS) built = false; } };
+})();
+
+/* ---------- SEEN ---------- */
+games.seen = (() => {
+  let seen = new Set(), cur = 0, isOld = false, score = 0, lives = 3, running = false, busy = false, best = 0;
+  try { best = +localStorage.getItem('sunwoo-seen-best') || 0; } catch(e){}
+  $('#sn-best').textContent = best;
+  function size(){ const w = Math.min(vw()-32, 380); $('#sn-photo').style.setProperty('--w', w+'px'); $('#sn-btns').style.setProperty('--w', w+'px'); }
+  function hud(){ $('#sn-score').textContent = score; $('#sn-lives').textContent = '❤️'.repeat(lives) + '🤍'.repeat(3 - lives); }
+  function start(){ seen = new Set(); score = 0; lives = 3; running = true; hud(); $('#sn-win').classList.remove('show');
+    $('#sn-start').hidden = true; $('#sn-btns').hidden = false; next(); }
+  function next(){
+    busy = false; const fresh = [...ALL.keys()].filter(i => !seen.has(i));
+    isOld = seen.size >= 2 && (Math.random() < .45 || !fresh.length);
+    cur = isOld ? shuffle([...seen])[0] : shuffle(fresh)[0];
+    const ph = $('#sn-photo'); ph.className = 'qphoto snphoto'; void ph.offsetWidth; ph.classList.add('in');
+    ph.style.backgroundImage = `url(${ALL[cur]})`; $('#sn-msg').textContent = '';
+  }
+  function answer(old){
+    if (!running || busy) return; busy = true; const ok = old === isOld, ph = $('#sn-photo');
+    seen.add(cur);
+    if (ok){ score++; ph.classList.add('ok'); $('#sn-msg').textContent = isOld ? '맞아요, 봤던 사진! 👀' : '맞아요, 처음 사진! ✨'; }
+    else { lives--; ph.classList.add('no'); $('#sn-msg').textContent = isOld ? '앗, 아까 본 사진이에요' : '앗, 처음 나온 사진이에요'; }
+    hud(); setTimeout(() => lives > 0 ? next() : end(), 800);
+  }
+  function end(){
+    running = false; $('#sn-btns').hidden = true; $('#sn-start').hidden = false; $('#sn-start').textContent = '다시 하기';
+    const nb = score > best; if (nb){ best = score; try { localStorage.setItem('sunwoo-seen-best', best); } catch(e){} $('#sn-best').textContent = best; if (score > 0) party.go(); }
+    if (score > 0) rank.add('seen', score);
+    $('#sn-wintitle').textContent = nb ? '🏆 최고 기록!' : '🎉 끝!'; $('#sn-winmsg').textContent = `${score}장 연속으로 기억했어요`; $('#sn-win').classList.add('show');
+  }
+  $('#sn-start').onclick = start; $('#sn-new').onclick = () => answer(false); $('#sn-old').onclick = () => answer(true);
+  window.addEventListener('keydown', e => { if (!$('#s-seen').classList.contains('on')) return;
+    if (e.key === 'ArrowLeft') answer(false); if (e.key === 'ArrowRight') answer(true); });
+  return { enter(){ size(); }, resize: size };
+})();
+
+/* ---------- SCRATCH ---------- */
+games.scratch = (() => {
+  let W = 0, idx = -1, done = false, down = false, last = null, checkT = 0, built = false;
+  const cv = $('#sc-cv'), ctx = cv.getContext('2d');
+  function size(){ W = Math.min(vw()-32, 420); $('#sc-wrap').style.setProperty('--w', W+'px'); if (built) cover(); }
+  function cover(){
+    const d = Math.min(devicePixelRatio || 1, 2); cv.width = cv.height = Math.round(W * d); ctx.setTransform(d,0,0,d,0,0);
+    ctx.globalCompositeOperation = 'source-over'; cv.style.opacity = 1;
+    const g = ctx.createLinearGradient(0, 0, W, W); g.addColorStop(0, '#d9c7a7'); g.addColorStop(.5, '#efe3cc'); g.addColorStop(1, '#cdb894');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, W);
+    ctx.fillStyle = 'rgba(255,255,255,.35)'; for (let i = 0; i < 70; i++){ ctx.beginPath(); ctx.arc(Math.random()*W, Math.random()*W, 1 + Math.random()*3, 0, 7); ctx.fill(); }
+    ctx.fillStyle = '#7a6040'; ctx.textAlign = 'center'; ctx.font = `700 ${Math.round(W/12)}px "Gowun Dodum", sans-serif`;
+    ctx.fillText('손가락으로 긁어 보세요', W/2, W/2 - 6); ctx.font = `${Math.round(W/9)}px sans-serif`; ctx.fillText('✨🪙✨', W/2, W/2 + W/9);
+    if (done) cv.style.opacity = 0;
+  }
+  function newCard(){
+    built = true; done = false; $('#sc-win').classList.remove('show');
+    let n; do { n = Math.floor(Math.random() * ALL.length); } while (n === idx && ALL.length > 1); idx = n;
+    $('#sc-photo').style.backgroundImage = `url(${ALL[idx]})`; cv.style.transition = 'none'; cover(); $('#sc-pct').textContent = '0%';
+  }
+  const pt = e => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * W / r.height }; };
+  function scratch(p){
+    ctx.globalCompositeOperation = 'destination-out'; ctx.lineCap = ctx.lineJoin = 'round'; ctx.lineWidth = W / 9;
+    ctx.beginPath(); ctx.moveTo((last || p).x, (last || p).y); ctx.lineTo(p.x + .01, p.y); ctx.stroke(); last = p;
+    const now = performance.now(); if (now - checkT > 250){ checkT = now; check(); }
+  }
+  function check(){
+    const s = 24, data = ctx.getImageData(0, 0, cv.width, cv.height).data; let clear = 0, tot = 0;
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++){ const px = Math.floor((x + .5) / s * cv.width), py = Math.floor((y + .5) / s * cv.height);
+      tot++; if (data[(py * cv.width + px) * 4 + 3] < 128) clear++; }
+    const pct = Math.round(clear / tot * 100); $('#sc-pct').textContent = pct + '%';
+    if (pct >= 60 && !done){ done = true; down = false; cv.style.transition = 'opacity .8s'; cv.style.opacity = 0; $('#sc-pct').textContent = '100%';
+      $('#sc-win').classList.add('show'); }
+  }
+  cv.addEventListener('pointerdown', e => { if (done) return; e.preventDefault(); down = true; last = null; try { cv.setPointerCapture(e.pointerId); } catch(_){} scratch(pt(e)); });
+  cv.addEventListener('pointermove', e => { if (down && !done) scratch(pt(e)); });
+  ['pointerup','pointercancel'].forEach(t => cv.addEventListener(t, () => { down = false; last = null; if (!done) check(); }));
+  $('#sc-new').onclick = newCard; $('#sc-again').onclick = newCard;
+  return { enter(){ size(); if (!built) newCard(); }, resize: size };
+})();
+
 /* ---------- ORDER ---------- */
 games.order = (() => {
   const ROUNDS = 5, DAY = 864e5;
@@ -1335,7 +1499,7 @@ const party = (() => {
     if (el.classList.contains('show')){ if (!seen.has(el)){ seen.add(el); go(); } }
     else seen.delete(el);
   }));
-  document.querySelectorAll('.win:not(#w-win):not(#d-win)').forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
+  document.querySelectorAll('.win:not(#w-win):not(#d-win):not(#sn-win)').forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
   return { go };
 })();
 
