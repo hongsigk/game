@@ -126,6 +126,24 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
 .gcard.new::after{content:"NEW";position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;letter-spacing:.5px;color:#fff;background:#e74c3c;border-radius:999px;padding:2px 7px;box-shadow:0 2px 6px rgba(231,76,60,.35);animation:pop .5s ease}
 .picker button{position:relative}
 .picker button.done::after{content:"✓";position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;background:#4caf50;color:#fff;font-size:12px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--paper)}
+/* shadow / flip / swap */
+.shview{width:var(--w);filter:grayscale(1) contrast(9) brightness(1.05);transition:filter .7s, box-shadow .3s}
+.shview.show{filter:none} .shview.ok{box-shadow:0 0 0 5px #4caf50} .shview.no{box-shadow:0 0 0 5px var(--wrong)}
+.fltile,.swtile{position:relative;aspect-ratio:1;border:0;padding:0;cursor:pointer;background-repeat:no-repeat;border-radius:4px;transition:transform .15s}
+.fltile::after{content:"선우";position:absolute;inset:0;display:grid;place-items:center;border-radius:4px;color:#fff;font-weight:700;font-size:clamp(12px,3.4vw,17px);
+  background:repeating-linear-gradient(45deg,var(--accent) 0 10px,color-mix(in srgb,var(--accent) 80%,#fff) 10px 20px);opacity:0;transform:scale(.6);transition:opacity .25s, transform .25s}
+.fltile.off::after{opacity:1;transform:none}
+.fltile:active,.swtile:active{transform:scale(.96)}
+.swtile.sel{box-shadow:0 0 0 4px var(--accent) inset;transform:scale(.94);z-index:1}
+.swtile.good::after{content:"✓";position:absolute;right:3px;bottom:2px;font-size:12px;font-weight:700;color:#fff;background:#4caf50;border-radius:50%;width:16px;height:16px;line-height:16px;text-align:center}
+.rgrid.solved .swtile::after{display:none}
+/* 게임 목록: 이름만, 한 화면에 많이 */
+.games{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (min-width:520px){ .games{grid-template-columns:repeat(4,minmax(0,1fr))} }
+.gcard{padding:14px 6px 12px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:96px}
+.gcard .ic{font-size:30px} .gcard b{font-size:14px;line-height:1.3;word-break:keep-all}
+.gcard span{display:none}
+.gcard.up::after,.gcard.new::after{top:5px;right:5px;font-size:9px;padding:1px 5px}
 /* memory */
 .mgrid{display:grid;gap:var(--gap);width:var(--w)}
 .mcard{aspect-ratio:1;perspective:700px;cursor:pointer;border:0;padding:0;background:none}
@@ -297,6 +315,9 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
     <button class="gcard" data-go="mosaic"><div class="ic">🟫</div><b>모자이크 사진 맞히기</b><span>점점 또렷해지는 모자이크, 무슨 사진일까?</span></button>
     <button class="gcard" data-go="seen"><div class="ic">👀</div><b>본 적 있나요?</b><span>처음 보는 사진인지 아까 본 사진인지 기억해요</span></button>
     <button class="gcard" data-go="scratch"><div class="ic">🪙</div><b>스크래치 복권</b><span>쓱쓱 긁으면 선우가 나와요</span></button>
+    <button class="gcard" data-go="shadow"><div class="ic">🌗</div><b>흑백 그림자 맞히기</b></button>
+    <button class="gcard" data-go="flip"><div class="ic">🔁</div><b>뒤집기 퍼즐</b></button>
+    <button class="gcard" data-go="swap"><div class="ic">🔀</div><b>바꿔 맞추기</b></button>
   </div>
   <div class="gb" id="gb" hidden>
     <h3>💌 가족 방명록</h3>
@@ -512,6 +533,38 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
   <div style="margin-top:12px;text-align:center"><button class="btn" id="sc-new">다른 복권</button></div>
   <div class="win" id="sc-win"><h3>🎉 선우 당첨!</h3><p>오늘의 행운은 선우예요</p><button class="btn" id="sc-again">한 장 더</button></div>
 </section>
+<section class="screen" id="s-shadow">
+  <button class="back" data-go="home">← 게임 목록</button>
+  <h2 class="gt">흑백 그림자 맞히기</h2>
+  <p class="sub">까맣고 하얗게만 남은 사진이에요. 아래에서 같은 사진을 골라요. 빨리 맞힐수록 점수가 커요</p>
+  <div class="stats"><span>문제 <b id="sh-round">1/8</b></span><span>점수 <b id="sh-score">0</b></span></div>
+  <div class="zbar" id="sh-barw"><i id="sh-bar"></i></div>
+  <div class="qphoto shview" id="sh-view"></div>
+  <div class="zchoices" id="sh-choices"></div>
+  <div class="win" id="sh-win"><h3>🎉 다 풀었어요!</h3><p id="sh-winmsg"></p><button class="btn" id="sh-again">한 번 더</button></div>
+</section>
+<section class="screen" id="s-flip">
+  <button class="back" data-go="home">← 게임 목록</button>
+  <h2 class="gt">뒤집기 퍼즐</h2>
+  <p class="sub">조각을 누르면 그 조각과 위·아래·양옆이 함께 뒤집혀요. 사진을 전부 앞면으로!</p>
+  <div class="picker" id="fl-picker"></div>
+  <div class="bar"><div class="seg" id="fl-sizes"><button data-n="3">3×3</button><button data-n="4">4×4</button><button data-n="5">5×5</button></div>
+    <button class="btn" id="fl-restart">다시 섞기</button></div>
+  <div class="stats"><span>시간 <b id="fl-time">0:00</b></span><span>누른 횟수 <b id="fl-moves">0</b></span><span>뒷면 <b id="fl-left">0</b></span></div>
+  <div class="rgrid" id="fl-grid"></div>
+  <div class="win" id="fl-win"><h3>🎉 선우 완성!</h3><p id="fl-winmsg"></p><button class="btn" id="fl-again">다음 사진</button></div>
+</section>
+<section class="screen" id="s-swap">
+  <button class="back" data-go="home">← 게임 목록</button>
+  <h2 class="gt">바꿔 맞추기</h2>
+  <p class="sub">조각 두 개를 차례로 누르면 자리가 바뀌어요. 제자리에 온 조각엔 ✓ 표시가 생겨요</p>
+  <div class="picker" id="sw-picker"></div>
+  <div class="bar"><div class="seg" id="sw-sizes"><button data-n="3">3×3</button><button data-n="4">4×4</button><button data-n="5">5×5</button></div>
+    <button class="btn" id="sw-restart">다시 섞기</button></div>
+  <div class="stats"><span>시간 <b id="sw-time">0:00</b></span><span>바꾼 횟수 <b id="sw-moves">0</b></span><span>남은 조각 <b id="sw-left">0</b></span></div>
+  <div class="rgrid" id="sw-grid"></div>
+  <div class="win" id="sw-win"><h3>🎉 선우 완성!</h3><p id="sw-winmsg"></p><button class="btn" id="sw-again">다음 사진</button></div>
+</section>
 
 <script>
 function init(DATA){
@@ -590,7 +643,7 @@ const rank = (() => {
   const RK = {
     nono:{lower:1, v:n=>`${n}×${n}`}, memory:{lower:1, v:n=>`${n}쌍`}, slide:{lower:1, v:n=>`${n}×${n}`}, rotate:{lower:1, v:n=>`${n}×${n}`},
     jigsaw:{lower:1, v:n=>`${n*n}조각`}, halves:{lower:1, v:n=>`${n}장`}, whack:{u:'점'}, order:{u:'개'}, simon:{u:'단계'}, odd:{u:'단계'},
-    breakout:{u:'점'}, month:{u:'개'}, zoom:{u:'점'}, mosaic:{u:'점'}, seen:{u:'장'} };
+    breakout:{u:'점'}, month:{u:'개'}, zoom:{u:'점'}, mosaic:{u:'점'}, seen:{u:'장'}, shadow:{u:'점'}, flip:{lower:1, v:n=>`${n}×${n}`}, swap:{lower:1, v:n=>`${n}×${n}`} };
   const cur = {}; let recs = [], lastLoad = 0, loading = null;
   const H = on ? { apikey: CFG.key, 'Content-Type': 'application/json' } : null;
   const b64 = u => btoa(String.fromCharCode(...new Uint8Array(u))), u8 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -1176,6 +1229,109 @@ games.scratch = (() => {
   ['pointerup','pointercancel'].forEach(t => cv.addEventListener(t, () => { down = false; last = null; if (!done) check(); }));
   $('#sc-new').onclick = newCard; $('#sc-again').onclick = newCard;
   return { enter(){ size(); if (!built) newCard(); }, resize: size };
+})();
+
+/* ---------- SILHOUETTE ---------- */
+games.shadow = (() => {
+  const ROUNDS = 8, DUR = 10000;
+  let order = [], round = 0, score = 0, answer = 0, t0 = 0, raf = null, busy = false, built = false;
+  function size(){ const w = Math.min(vw()-32, 420); ['#sh-view','#sh-choices','#sh-barw'].forEach(s => $(s).style.setProperty('--w', w+'px')); }
+  function start(){ built = true; order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#sh-score').textContent = 0; $('#sh-win').classList.remove('show'); next(); }
+  function next(){
+    busy = false; answer = order[round]; $('#sh-round').textContent = `${round+1}/${ROUNDS}`;
+    const v = $('#sh-view'); v.className = 'qphoto shview'; v.style.backgroundImage = `url(${ALL[answer]})`;
+    const opts = shuffle([answer, ...shuffle([...ALL.keys()].filter(i => i !== answer)).slice(0,3)]);
+    const box = $('#sh-choices'); box.innerHTML = '';
+    opts.forEach(i => { const b = document.createElement('button'); b.style.backgroundImage = `url(${ALL[i]})`; b.dataset.i = i; b.setAttribute('aria-label','보기');
+      b.onclick = () => pick(i, b); box.appendChild(b); });
+    t0 = performance.now(); cancelAnimationFrame(raf); frame();
+  }
+  function frame(){ const p = Math.min(1, (performance.now() - t0) / DUR); $('#sh-bar').style.width = (100 - p*100) + '%'; if (p < 1 && !busy) raf = requestAnimationFrame(frame); }
+  function pick(i, b){
+    if (busy) return; busy = true; cancelAnimationFrame(raf);
+    const p = Math.min(1, (performance.now() - t0) / DUR), v = $('#sh-view'); v.classList.add('show');
+    if (i === answer){ score += Math.max(1, Math.round(10 * (1 - p))); $('#sh-score').textContent = score; b.classList.add('ok'); v.classList.add('ok'); }
+    else { b.classList.add('no'); v.classList.add('no'); $(`#sh-choices button[data-i="${answer}"]`).classList.add('ok'); }
+    setTimeout(() => { round++; if (round < ROUNDS) next(); else {
+      $('#sh-winmsg').textContent = `${ROUNDS}문제 · ${score}점 (최대 ${ROUNDS*10}점)`; rank.add('shadow', score); $('#sh-win').classList.add('show'); } }, 1500);
+  }
+  $('#sh-again').onclick = start;
+  return { enter(){ size(); if (!built) start(); }, resize: size };
+})();
+
+/* ---------- FLIP (누르면 십자 모양으로 뒤집혀요) ---------- */
+games.flip = (() => {
+  let N = 3, img = 0, on = [], moves = 0, solved = false, built = false, tiles = [];
+  const timer = Timer('#fl-time');
+  makePicker('#fl-picker', i => { img = i; build(); });
+  function size(){ const W = Math.floor(Math.min(vw() - 32, 460)); $('#fl-grid').style.setProperty('--w', W+'px'); }
+  function paint(){ tiles.forEach((t, k) => t.classList.toggle('off', !on[k])); $('#fl-left').textContent = on.filter(v => !v).length; }
+  function press(k, count = true){
+    const r = Math.floor(k / N), c = k % N;
+    [[r,c],[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([y,x]) => { if (y >= 0 && y < N && x >= 0 && x < N) on[y*N+x] = !on[y*N+x]; });
+    if (count){ moves++; $('#fl-moves').textContent = moves; }
+  }
+  function build(n = N){
+    N = n; built = true; moves = 0; solved = false; timer.reset(); $('#fl-moves').textContent = 0; $('#fl-win').classList.remove('show');
+    pressed('#fl-sizes','n',N); pressed('#fl-picker','i',img); rank.view('flip', N);
+    // 다 맞춘 상태에서 무작위로 눌러 섞으니 항상 풀 수 있어요
+    on = Array(N*N).fill(true);
+    const presses = shuffle([...Array(N*N).keys()]).slice(0, N === 3 ? 3 : N === 4 ? 5 : 7);
+    presses.forEach(k => press(k, false));
+    if (on.every(Boolean)) press(Math.floor(N*N/2), false);
+    const g = $('#fl-grid'); g.innerHTML = ''; g.classList.remove('solved'); g.style.gridTemplateColumns = `repeat(${N}, 1fr)`; tiles = [];
+    for (let k = 0; k < N*N; k++){
+      const b = document.createElement('button'); b.className = 'fltile';
+      b.style.backgroundImage = `url(${ALL[img]})`; b.style.backgroundSize = `${N*100}% ${N*100}%`;
+      b.style.backgroundPosition = `${(k%N)/(N-1)*100}% ${Math.floor(k/N)/(N-1)*100}%`;
+      b.setAttribute('aria-label', `${Math.floor(k/N)+1}행 ${k%N+1}열`); b.onclick = () => tap(k); g.appendChild(b); tiles.push(b);
+    }
+    paint(); size();
+  }
+  function tap(k){
+    if (solved) return; timer.start(); press(k); paint();
+    if (on.every(Boolean)){ solved = true; timer.stop(); setTimeout(() => $('#fl-grid').classList.add('solved'), 250);
+      $('#fl-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · ${moves}번 누름`; rank.add('flip', timer.sec(), N); $('#fl-win').classList.add('show'); }
+  }
+  $$('#fl-sizes button').forEach(b => b.onclick = () => build(+b.dataset.n));
+  $('#fl-restart').onclick = () => build(); $('#fl-again').onclick = () => { img = (img + 1) % ALL.length; build(); };
+  return { enter(){ if (!built){ img = Math.floor(Math.random() * ALL.length); build(3); } }, resize(){ if (built) size(); } };
+})();
+
+/* ---------- SWAP (두 조각을 골라 자리 바꾸기) ---------- */
+games.swap = (() => {
+  let N = 3, img = 0, pos = [], sel = -1, moves = 0, solved = false, built = false, tiles = [];
+  const timer = Timer('#sw-time');
+  makePicker('#sw-picker', i => { img = i; build(); });
+  function size(){ const W = Math.floor(Math.min(vw() - 32, 460)); $('#sw-grid').style.setProperty('--w', W+'px'); }
+  function paint(){
+    tiles.forEach((b, slot) => { const p = pos[slot];
+      b.style.backgroundPosition = `${(p%N)/(N-1)*100}% ${Math.floor(p/N)/(N-1)*100}%`;
+      b.classList.toggle('sel', slot === sel); b.classList.toggle('good', p === slot); });
+    $('#sw-left').textContent = pos.filter((p, s) => p !== s).length;
+  }
+  function build(n = N){
+    N = n; built = true; moves = 0; sel = -1; solved = false; timer.reset(); $('#sw-moves').textContent = 0; $('#sw-win').classList.remove('show');
+    pressed('#sw-sizes','n',N); pressed('#sw-picker','i',img); rank.view('swap', N);
+    do { pos = shuffle([...Array(N*N).keys()]); } while (pos.filter((p, s) => p === s).length > N / 2);
+    const g = $('#sw-grid'); g.innerHTML = ''; g.classList.remove('solved'); g.style.gridTemplateColumns = `repeat(${N}, 1fr)`; tiles = [];
+    for (let s = 0; s < N*N; s++){
+      const b = document.createElement('button'); b.className = 'swtile'; b.style.backgroundImage = `url(${ALL[img]})`; b.style.backgroundSize = `${N*100}% ${N*100}%`;
+      b.setAttribute('aria-label', `조각 ${s+1}`); b.onclick = () => tap(s); g.appendChild(b); tiles.push(b);
+    }
+    paint(); size();
+  }
+  function tap(s){
+    if (solved) return; timer.start();
+    if (sel < 0){ if (pos[s] !== s) sel = s; paint(); return; }
+    if (sel === s){ sel = -1; paint(); return; }
+    [pos[sel], pos[s]] = [pos[s], pos[sel]]; sel = -1; moves++; $('#sw-moves').textContent = moves; paint();
+    if (pos.every((p, i) => p === i)){ solved = true; timer.stop(); setTimeout(() => $('#sw-grid').classList.add('solved'), 250);
+      $('#sw-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · ${moves}번 바꿈`; rank.add('swap', timer.sec(), N); $('#sw-win').classList.add('show'); }
+  }
+  $$('#sw-sizes button').forEach(b => b.onclick = () => build(+b.dataset.n));
+  $('#sw-restart').onclick = () => build(); $('#sw-again').onclick = () => { img = (img + 1) % ALL.length; build(); };
+  return { enter(){ if (!built){ img = Math.floor(Math.random() * ALL.length); build(3); } }, resize(){ if (built) size(); } };
 })();
 
 /* ---------- ORDER ---------- */
