@@ -532,12 +532,18 @@ function bump(el){ el.classList.remove('pop'); void el.offsetWidth; el.classList
 
 /* ---------- routing ---------- */
 const games = {};
-function go(name){
+function go(name, fromHistory){
+  // 홈→게임은 기록을 쌓고(폰 뒤로 가기 = 메인으로), 게임 안의 '← 게임 목록'은 그 기록을 되돌려요
+  if (!fromHistory){
+    if (name === 'home' && history.state && history.state.g){ history.back(); return; }
+    if (name !== 'home' && location.hash.slice(1) !== name) history.pushState({ g: name }, '', '#' + name);
+  }
+  if ($('#s-home').classList.contains('on')) go.homeY = window.scrollY;
   Object.entries(games).forEach(([k,g]) => { if (k !== name && g.leave) g.leave(); });
   $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-'+name));
   if (games[name]){ visit(name); games[name].enter(); rank.show(name); }
-  if (location.hash.slice(1) !== name) history.replaceState(null, '', name === 'home' ? location.pathname : '#'+name);
-  window.scrollTo(0,0);
+  if (name === 'home' && location.hash) history.replaceState(null, '', location.pathname);
+  window.scrollTo(0, name === 'home' ? (go.homeY || 0) : 0);
 }
 $$('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
 // 게임을 고치면 여기 숫자를 올려요 → 전에 해 본 사람에게 UP 배지
@@ -1561,8 +1567,9 @@ const party = (() => {
 })();
 
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => Object.values(games).forEach(g => g.resize()), 150); });
-window.addEventListener('hashchange', () => go(location.hash.slice(1) || 'home'));
-const start = location.hash.slice(1); if (games[start]) go(start);
+window.addEventListener('popstate', () => go(location.hash.slice(1) || 'home', true));
+const start = location.hash.slice(1);
+if (games[start]){ history.replaceState(null, '', location.pathname); go(start); }   // 링크로 바로 들어와도 뒤로 가기 = 메인
 nameGate(false);
 }
 const GB_URL = 'https://uwqjrfztdjmkjgeppcae.supabase.co', GB_KEY = 'sb_publishable_VfMkl43D4UI2r_jkSq3WRw_R-slnvpT';
