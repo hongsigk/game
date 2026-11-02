@@ -122,6 +122,8 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
 #sc-cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
 .gcard{position:relative}
 .gcard.new::after{content:"NEW";position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;letter-spacing:.5px;color:#fff;background:#e74c3c;border-radius:999px;padding:2px 7px;box-shadow:0 2px 6px rgba(231,76,60,.35);animation:pop .5s ease}
+.picker button{position:relative}
+.picker button.done::after{content:"✓";position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;background:#4caf50;color:#fff;font-size:12px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--paper)}
 /* memory */
 .mgrid{display:grid;gap:var(--gap);width:var(--w)}
 .mcard{aspect-ratio:1;perspective:700px;cursor:pointer;border:0;padding:0;background:none}
@@ -320,6 +322,7 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
   <div class="stats"><span>시간 <b id="n-time">0:00</b></span><span>실수 <b id="n-miss">0</b></span><span>열린 칸 <b id="n-pct">0%</b></span></div>
   <div class="board" id="n-board"></div>
   <div class="win" id="n-win"><h3>🎉 선우 완성!</h3><p id="n-winmsg"></p><button class="btn" id="n-again">다음 사진</button></div>
+  <div class="win" id="n-done"><h3>✅ 완성한 사진이에요</h3><p id="n-donemsg"></p><button class="btn" id="n-redo">다시 하기</button> <button class="btn" id="n-next">다음 사진</button></div>
   <p class="help">숫자는 그 줄에 연속으로 칠해진 칸의 개수예요. 칠할 칸은 <b>O</b>, 비울 칸은 <b>X</b>로 맞혀 보세요.<br>
   드래그하면 여러 칸을 한 번에, 마우스 오른쪽 클릭은 언제나 X예요. 키보드 <kbd>Z</kbd>·<kbd>X</kbd>로 모드를 바꿔요.<br>
   한 줄의 칠할 칸을 다 찾으면 나머지 칸은 저절로 열려요.</p>
@@ -630,8 +633,14 @@ games.nono = (() => {
     b.style.gridTemplateColumns = `${Math.ceil(maxR * Math.max(cell*0.62, fs*1.3) + 8)}px auto`;
     return {rowC, colC, maxC};
   }
+  // 완성 기록: { "<사진번호>-<크기>": {t, m, h} } — 다시 하기를 누를 때만 지워져요
+  let DONE = {}; try { DONE = JSON.parse(localStorage.getItem('sunwoo-nono-done') || '{}') || {}; } catch(e){}
+  const saveDone = () => { try { localStorage.setItem('sunwoo-nono-done', JSON.stringify(DONE)); } catch(e){} };
+  const dkey = () => `${NONO[pi].i}-${N}`;
+  const markPicker = () => $$('#n-picker button').forEach(b => b.classList.toggle('done', !!DONE[`${NONO[+b.dataset.k].i}-${N}`]));
   function build(n){
-    N = n; built = true; const P = NONO[pi].p[n]; pressed('#n-picker','k',pi); rank.view('nono', N);
+    N = n; built = true; const P = NONO[pi].p[n]; $('#n-done').classList.remove('show'); markPicker();
+    try { localStorage.setItem('sunwoo-nono-last', JSON.stringify([pi, N])); } catch(e){} pressed('#n-picker','k',pi); rank.view('nono', N);
     sol = P.solution.map(s => [...s].map(Number)); state = sol.map(r => r.map(() => false));
     misses = 0; hintsUsed = 0; solved = false; timer.reset(); $('#n-miss').textContent = '0'; $('#n-win').classList.remove('show');
     pressed('#n-sizes','n',n);
@@ -657,6 +666,14 @@ games.nono = (() => {
     P.hints.forEach(([r,c]) => open(r,c,false));
     for (let i=0;i<N;i++){ checkLine(i,true,false); checkLine(i,false,false); }
     updatePct();
+    const rec = DONE[dkey()];
+    if (rec){   // 이미 완성한 퍼즐은 완성된 모습 그대로
+      for (let r=0;r<N;r++) for (let c=0;c<N;c++) open(r,c,false);
+      for (let i=0;i<N;i++){ $('#rc'+i).classList.add('done'); $('#cc'+i).classList.add('done'); }
+      solved = true; $('#n-grid').classList.add('solved'); updatePct(); $('#n-time').textContent = fmt(rec.t); $('#n-miss').textContent = rec.m;
+      $('#n-donemsg').textContent = `${N}×${N} · ${fmt(rec.t)} · 실수 ${rec.m}번` + (rec.h ? ` · 힌트 ${rec.h}번` : '');
+      $('#n-done').classList.add('show');
+    }
   }
   function open(r,c,anim=true){
     if (state[r][c]) return; state[r][c] = true;
@@ -683,7 +700,8 @@ games.nono = (() => {
   }
   function updatePct(){ $('#n-pct').textContent = Math.round(state.flat().filter(Boolean).length/(N*N)*100) + '%'; }
   function win(){ solved = true; timer.stop(); $('#n-grid').classList.add('solved');
-    $('#n-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · 실수 ${misses}번` + (hintsUsed ? ` · 힌트 ${hintsUsed}번 (힌트를 쓰면 랭킹엔 안 올라가요)` : ''); if (!hintsUsed) rank.add('nono', timer.sec(), N); $('#n-win').classList.add('show'); }
+    $('#n-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · 실수 ${misses}번` + (hintsUsed ? ` · 힌트 ${hintsUsed}번 (힌트를 쓰면 랭킹엔 안 올라가요)` : ''); if (!hintsUsed) rank.add('nono', timer.sec(), N); $('#n-win').classList.add('show');
+    DONE[dkey()] = { t: timer.sec(), m: misses, h: hintsUsed }; saveDone(); markPicker(); }
   function highlight(r,c){ $$('#n-board .hl').forEach(e => e.classList.remove('hl')); if (r==null) return; $('#rc'+r).classList.add('hl'); $('#cc'+c).classList.add('hl'); }
   const cellAt = (x,y) => { const el = document.elementFromPoint(x,y); return el && el.classList.contains('cell') ? el : null; };
   const boardEl = $('#n-board');
@@ -721,8 +739,10 @@ games.nono = (() => {
     for (let k=0;k<N;k++){ checkLine(k,true); checkLine(k,false); }
     updatePct(); if (state.every(row => row.every(Boolean))) win();
   };
-  $('#n-restart').onclick = () => build(N); $('#n-again').onclick = () => { pi = (pi + 1) % NONO.length; build(N); };
-  return { enter(){ if (!built) build(5); }, resize(){ if (built) layout(); } };
+  const redo = () => { delete DONE[dkey()]; saveDone(); build(N); }, nextPic = () => { pi = (pi + 1) % NONO.length; build(N); };
+  $('#n-restart').onclick = redo; $('#n-redo').onclick = redo; $('#n-again').onclick = nextPic; $('#n-next').onclick = nextPic;
+  return { enter(){ if (!built){ let l = [0, 5]; try { l = JSON.parse(localStorage.getItem('sunwoo-nono-last')) || l; } catch(e){}
+    if (NONO[l[0]] && NONO[l[0]].p[l[1]]) pi = l[0]; else l = [0, 5]; build(l[1]); } }, resize(){ if (built) layout(); } };
 })();
 
 /* ---------- MEMORY ---------- */
@@ -1510,7 +1530,7 @@ const party = (() => {
     if (el.classList.contains('show')){ if (!seen.has(el)){ seen.add(el); go(); } }
     else seen.delete(el);
   }));
-  document.querySelectorAll('.win:not(#w-win):not(#d-win):not(#sn-win)').forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
+  document.querySelectorAll('.win:not(#w-win):not(#d-win):not(#sn-win):not(#n-done)').forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
   return { go };
 })();
 
