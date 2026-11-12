@@ -144,6 +144,14 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
 .gcard .ic{font-size:30px} .gcard b{font-size:14px;line-height:1.3;word-break:keep-all}
 .gcard span{display:none}
 .gcard.up::after,.gcard.new::after{top:5px;right:5px;font-size:9px;padding:1px 5px}
+/* 완성 기록 */
+.screen.finished > :not(.back):not(.gt):not(.sub):not(.rank):not(.bar):not(.picker):not(.done-panel){display:none!important}
+.done-panel .dpics{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 auto 12px;max-width:420px}
+.done-panel .dpics:empty{display:none}
+.done-panel .dpics div{width:60px;height:60px;border-radius:10px;background-size:cover;background-position:center;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.done-panel .dpics.one div{width:min(320px,calc(100vw - 48px));height:min(320px,calc(100vw - 48px));border-radius:14px}
+.done-panel .dbtns{display:flex;gap:8px;justify-content:center}
+#s-breakout.finished .bar{display:none!important}
 /* memory */
 .mgrid{display:grid;gap:var(--gap);width:var(--w)}
 .mcard{aspect-ratio:1;perspective:700px;cursor:pointer;border:0;padding:0;background:none}
@@ -700,6 +708,35 @@ const rank = (() => {
   return { view, show, add, refresh, on };
 })();
 
+/* ---------- 완성 기록: 완성한 게임은 완성으로 두고, '다시 하기'를 누를 때만 지워요 ---------- */
+const KEEP = (() => { let d = {}; try { d = JSON.parse(localStorage.getItem('sunwoo-done') || '{}') || {}; } catch(e){}
+  const save = () => { try { localStorage.setItem('sunwoo-done', JSON.stringify(d)); } catch(e){} };
+  return { get: k => d[k], set(k, v){ d[k] = v; save(); }, del(k){ delete d[k]; save(); } }; })();
+// finished: 문제가 무작위라 판을 되살릴 수 없는 게임은 판을 숨기고 지난 결과만 보여 줘요
+function Keeper(game, { redo, next, finished = false }){
+  const sec = $('#s-' + game), p = document.createElement('div'); p.className = 'win done-panel';
+  p.innerHTML = '<h3>✅ 완성했어요</h3><p class="dmsg"></p><div class="dpics"></div><div class="dbtns"></div>';
+  const bx = p.querySelector('.dbtns'), add = (t, f) => { const b = document.createElement('button'); b.className = 'btn'; b.textContent = t; b.onclick = f; bx.appendChild(b); };
+  let key = game;
+  const hide = () => { p.classList.remove('show'); sec.classList.remove('finished'); };
+  add('다시 하기', () => { KEEP.del(key); hide(); redo(); });
+  if (next) add('다음 사진', () => { hide(); next(); });
+  (sec.querySelector('.win') || sec.lastElementChild).after(p);
+  const K = {
+    at(k){ key = k == null ? game : `${game}-${k}`; return K; },
+    rec: () => KEEP.get(key), save(rec){ KEEP.set(key, rec); }, drop(){ KEEP.del(key); hide(); }, hide,
+    has: k => !!KEEP.get(`${game}-${k}`),
+    show(){ const rec = KEEP.get(key); if (!rec) return false;
+      p.querySelector('.dmsg').textContent = rec.msg || '';
+      const pics = p.querySelector('.dpics'), list = rec.pics || []; pics.innerHTML = ''; pics.classList.toggle('one', list.length === 1);
+      list.forEach(i => { if (ALL[i] == null) return; const d = document.createElement('div'); d.style.backgroundImage = `url(${ALL[i]})`; pics.appendChild(d); });
+      p.classList.add('show'); if (finished) sec.classList.add('finished'); return true; }
+  };
+  return K;
+}
+// 사진 고르는 줄에 완성한 사진 ✓ 표시
+function markDone(sel, K, N){ $$(sel + ' button').forEach(b => b.classList.toggle('done', K.has(`${b.dataset.i}-${N}`))); }
+
 /* ---------- NONOGRAM ---------- */
 games.nono = (() => {
   let N, sol, state, mode = 1, misses = 0, solved = false, cells = [], drag = null, built = false, pi = 0, hintsUsed = 0;
@@ -834,6 +871,7 @@ games.nono = (() => {
 games.memory = (() => {
   let pairs = 8, first = null, lock = false, moves = 0, found = 0, built = false;
   const timer = Timer('#m-time');
+  const K = Keeper('memory', { redo: () => build(pairs), finished: true });
   function size(){
     const cols = 4, rows = pairs*2/cols;
     const maxH = window.innerHeight - 260;
@@ -845,6 +883,7 @@ games.memory = (() => {
     pairs = p; built = true; first = null; lock = false; moves = 0; found = 0; timer.reset();
     $('#m-moves').textContent = 0; $('#m-found').textContent = `0/${pairs}`; $('#m-win').classList.remove('show');
     pressed('#m-sizes','p',p); size(); rank.view('memory', p);
+    K.at(p); K.hide(); if (K.show()) return;
     const pick = shuffle([...PHOTOS.keys()]).slice(0, pairs);
     const deck = shuffle([...pick, ...pick]);
     const g = $('#m-grid'); g.innerHTML = '';
@@ -864,14 +903,15 @@ games.memory = (() => {
       setTimeout(() => { [a,b].forEach(x => { x.classList.remove('up'); x.classList.add('got'); bump(x); }); }, 300);
       found++; $('#m-found').textContent = `${found}/${pairs}`;
       if (found === pairs){ timer.stop(); setTimeout(() => {
-        $('#m-winmsg').textContent = `${pairs}쌍 · ${fmt(timer.sec())} · ${moves}번 뒤집기`; rank.add('memory', timer.sec(), pairs); $('#m-win').classList.add('show'); }, 600); }
+        $('#m-winmsg').textContent = `${pairs}쌍 · ${fmt(timer.sec())} · ${moves}번 뒤집기`; rank.add('memory', timer.sec(), pairs); $('#m-win').classList.add('show');
+        K.save({ msg: $('#m-winmsg').textContent, pics: [...new Set($$('#m-grid .mcard').map(c => +c.dataset.id + 1))] }); }, 600); }
     } else {
       lock = true; const a = first; first = null;
       setTimeout(() => { a.classList.remove('up'); b.classList.remove('up'); lock = false; }, 850);
     }
   }
   $$('#m-sizes button').forEach(b => b.onclick = () => build(+b.dataset.p));
-  $('#m-restart').onclick = () => build(pairs); $('#m-again').onclick = () => build(pairs);
+  $('#m-restart').onclick = () => { K.drop(); build(pairs); }; $('#m-again').onclick = () => { K.drop(); build(pairs); };
   return { enter(){ if (!built) build(8); }, resize(){ if (built) size(); } };
 })();
 
@@ -880,6 +920,7 @@ games.slide = (() => {
   let N = 3, img = 1, pos = [], empty, moves = 0, solved = false, built = false, tiles = [], W = 0;
   const timer = Timer('#s-time');
   makePicker('#s-picker', i => { img = i; build(); });
+  const K = Keeper('slide', { redo: () => build(), next: () => { img = (img + 1) % ALL.length; build(); } });
   function place(){
     const t = W / N;
     tiles.forEach((el,k) => { if (!el) return; const p = pos[k];
@@ -911,7 +952,8 @@ games.slide = (() => {
       b.style.backgroundImage = `url(${ALL[img]})`; b.innerHTML = `<span class="num">${k+1}</span>`;
       b.onclick = () => tap(k); f.appendChild(b); tiles.push(b);
     }
-    size();
+    size(); K.at(`${img}-${N}`); K.hide(); markDone('#s-picker', K, N);
+    if (K.rec()){ pos = [...Array(N*N).keys()]; place(); solved = true; fill(false); K.show(); }
   }
   function neighbors(p){ const r = Math.floor(p/N), c = p%N, o = [];
     if (r>0) o.push(p-N); if (r<N-1) o.push(p+N); if (c>0) o.push(p-1); if (c<N-1) o.push(p+1); return o; }
@@ -927,16 +969,19 @@ games.slide = (() => {
     pos[empty] = p; moves++; $('#s-moves').textContent = moves; place();
     if (pos.every((q,i) => q === i)) win();
   }
-  function win(){
-    solved = true; timer.stop();
+  function fill(anim = true){
     const f = $('#s-frame'), b = document.createElement('div'); b.className = 'tile';
-    b.style.backgroundImage = `url(${ALL[img]})`; b.style.opacity = 0; b.style.transition = 'opacity .5s';
-    f.appendChild(b); tiles[empty] = b; size(); requestAnimationFrame(() => { b.style.opacity = 1; f.classList.add('solved'); });
+    b.style.backgroundImage = `url(${ALL[img]})`; b.style.opacity = anim ? 0 : 1; b.style.transition = 'opacity .5s';
+    f.appendChild(b); tiles[empty] = b; size(); if (anim) requestAnimationFrame(() => { b.style.opacity = 1; f.classList.add('solved'); }); else f.classList.add('solved');
+  }
+  function win(){
+    solved = true; timer.stop(); fill();
     $('#s-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · ${moves}번 움직임`; rank.add('slide', timer.sec(), N); $('#s-win').classList.add('show');
+    K.save({ msg: $('#s-winmsg').textContent }); markDone('#s-picker', K, N);
   }
   $$('#s-sizes button').forEach(b => b.onclick = () => build(+b.dataset.n));
   $('#s-nums').onclick = () => $('#s-frame').classList.toggle('nums');
-  $('#s-restart').onclick = () => build(); $('#s-again').onclick = () => build();
+  $('#s-restart').onclick = () => { K.drop(); build(); }; $('#s-again').onclick = () => { K.drop(); build(); };
   return { enter(){ if (!built) build(3); }, resize(){ if (built) size(); } };
 })();
 
@@ -945,6 +990,7 @@ games.rotate = (() => {
   let N = 3, img = 2, rot = [], moves = 0, solved = false, built = false, tiles = [];
   const timer = Timer('#r-time');
   makePicker('#r-picker', i => { img = i; build(); });
+  const K = Keeper('rotate', { redo: () => build(), next: () => { img = (img + 1) % ALL.length; build(); } });
   function size(){
     const W = Math.floor(Math.min(vw() - 32, 480, window.innerHeight - 330 > 280 ? window.innerHeight - 330 : 480));
     const g = $('#r-grid'); g.style.setProperty('--w', W+'px');
@@ -961,17 +1007,19 @@ games.rotate = (() => {
       const b = document.createElement('button'); b.className = 'rtile'; b.style.backgroundImage = `url(${ALL[img]})`;
       b.style.transform = `rotate(${r}deg)`; b.onclick = () => turn(k); g.appendChild(b); tiles.push(b);
     });
-    $('#r-left').textContent = left(); size();
+    $('#r-left').textContent = left(); size(); K.at(`${img}-${N}`); K.hide(); markDone('#r-picker', K, N);
+    if (K.rec()){ rot = rot.map(() => 0); tiles.forEach(t => t.style.transform = 'rotate(0deg)'); $('#r-left').textContent = 0; solved = true; g.classList.add('solved'); K.show(); }
   }
   function turn(k){
     if (solved) return; timer.start();
     rot[k] += 90; tiles[k].style.transform = `rotate(${rot[k]}deg)`;
     moves++; $('#r-moves').textContent = moves; $('#r-left').textContent = left();
     if (left() === 0){ solved = true; timer.stop(); setTimeout(() => $('#r-grid').classList.add('solved'), 250);
-      $('#r-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · ${moves}번 돌림`; rank.add('rotate', timer.sec(), N); $('#r-win').classList.add('show'); }
+      $('#r-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · ${moves}번 돌림`; rank.add('rotate', timer.sec(), N); $('#r-win').classList.add('show');
+      K.save({ msg: $('#r-winmsg').textContent }); markDone('#r-picker', K, N); }
   }
   $$('#r-sizes button').forEach(b => b.onclick = () => build(+b.dataset.n));
-  $('#r-restart').onclick = () => build(); $('#r-again').onclick = () => build();
+  $('#r-restart').onclick = () => { K.drop(); build(); }; $('#r-again').onclick = () => { K.drop(); build(); };
   return { enter(){ if (!built) build(3); }, resize(){ if (built) size(); } };
 })();
 
@@ -980,6 +1028,7 @@ games.jigsaw = (() => {
   let N = 3, img = 4, pieces = [], W = 0, done = 0, built = false, solved = false, z = 1, trayH = 0;
   const timer = Timer('#j-time');
   makePicker('#j-picker', i => { img = i; build(); });
+  const K = Keeper('jigsaw', { redo: () => build(), next: () => { img = (img + 1) % ALL.length; build(); } });
   function size(){
     W = Math.floor(Math.min(vw() - 32, 440));
     trayH = Math.round(W * 0.62);
@@ -1001,7 +1050,9 @@ games.jigsaw = (() => {
         x: Math.random() * (1 - ps), y: top0 + Math.random() * Math.max(0.01, trayFrac - ps) };
       el.style.zIndex = ++z; el.addEventListener('pointerdown', e => grab(e, p)); wrap.appendChild(el); pieces.push(p);
     });
-    size();
+    size(); K.at(`${img}-${N}`); K.hide(); markDone('#j-picker', K, N);
+    if (K.rec()){ pieces.forEach(p => { p.x = p.c / N; p.y = p.r / N; p.lock = true; p.el.classList.add('lock'); p.el.style.zIndex = 1; });
+      done = N*N; solved = true; $('#j-done').textContent = `${done}/${N*N}`; size(); K.show(); }
   }
   function grab(e, p){
     if (p.lock || solved) return; e.preventDefault(); timer.start();
@@ -1018,12 +1069,12 @@ games.jigsaw = (() => {
       if (Math.hypot(p.x - tx, p.y - ty) < s * 0.35){
         p.x = tx; p.y = ty; p.lock = true; el.classList.add('lock'); el.style.zIndex = 1; size();
         done++; $('#j-done').textContent = `${done}/${N*N}`;
-        if (done === N*N){ solved = true; timer.stop(); $('#j-winmsg').textContent = `${N*N}조각 · ${fmt(timer.sec())}`; rank.add('jigsaw', timer.sec(), N); $('#j-win').classList.add('show'); }
+        if (done === N*N){ solved = true; timer.stop(); $('#j-winmsg').textContent = `${N*N}조각 · ${fmt(timer.sec())}`; rank.add('jigsaw', timer.sec(), N); $('#j-win').classList.add('show'); K.save({ msg: $('#j-winmsg').textContent }); markDone('#j-picker', K, N); }
       } };
     el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   }
   $$('#j-sizes button').forEach(b => b.onclick = () => build(+b.dataset.n));
-  $('#j-restart').onclick = () => build(); $('#j-again').onclick = () => build();
+  $('#j-restart').onclick = () => { K.drop(); build(); }; $('#j-again').onclick = () => { K.drop(); build(); };
   return { enter(){ if (!built) build(3); }, resize(){ if (built) size(); } };
 })();
 
@@ -1084,7 +1135,8 @@ games.zoom = (() => {
   const ROUNDS = 8, DUR = 10000, ZOOM = 600;
   let order = [], round = 0, score = 0, answer = 0, t0 = 0, raf = null, busy = false, fx = 50, fy = 50, built = false;
   function size(){ const w = Math.min(vw()-32, 420); ['#z-view','#z-choices','#z-barw'].forEach(s => $(s).style.setProperty('--w', w+'px')); }
-  function start(){ built = true; order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#z-score').textContent = 0; $('#z-win').classList.remove('show'); next(); }
+  const K = Keeper('zoom', { redo: () => start(), finished: true });
+  function start(){ built = true; K.hide(); order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#z-score').textContent = 0; $('#z-win').classList.remove('show'); next(); }
   function next(){
     busy = false; answer = order[round]; $('#z-round').textContent = `${round+1}/${ROUNDS}`;
     fx = 15 + Math.random()*70; fy = 15 + Math.random()*70;
@@ -1110,10 +1162,10 @@ games.zoom = (() => {
     else { b.classList.add('no'); v.classList.add('no');
       [...$('#z-choices').children].find(x => x.style.backgroundImage.includes(ALL[answer].slice(-40))).classList.add('ok'); }
     setTimeout(() => { round++; if (round < ROUNDS) next(); else {
-      $('#z-winmsg').textContent = `${ROUNDS}문제 · ${score}점 (최대 ${ROUNDS*10}점)`; rank.add('zoom', score); $('#z-win').classList.add('show'); } }, 1300);
+      $('#z-winmsg').textContent = `${ROUNDS}문제 · ${score}점 (최대 ${ROUNDS*10}점)`; rank.add('zoom', score); $('#z-win').classList.add('show'); K.save({ msg: $('#z-winmsg').textContent, pics: order }); } }, 1300);
   }
-  $('#z-again').onclick = start;
-  return { enter(){ size(); if (!built) start(); }, resize: size };
+  $('#z-again').onclick = () => { K.drop(); start(); };
+  return { enter(){ size(); if (!built){ built = true; if (!K.show()) start(); } }, resize: size };
 })();
 
 /* ---------- MOSAIC ---------- */
@@ -1131,7 +1183,8 @@ games.mosaic = (() => {
     tmp.width = tmp.height = k; tctx.imageSmoothingEnabled = true; tctx.drawImage(img, 0, 0, k, k);
     ctx.drawImage(tmp, 0, 0, k, k, 0, 0, cv.width, cv.height);
   }
-  function start(){ built = true; order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#mz-score').textContent = 0; $('#mz-win').classList.remove('show'); next(); }
+  const K = Keeper('mosaic', { redo: () => start(), finished: true });
+  function start(){ built = true; K.hide(); order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#mz-score').textContent = 0; $('#mz-win').classList.remove('show'); next(); }
   function next(){
     busy = false; step = 0; answer = order[round]; $('#mz-round').textContent = `${round+1}/${ROUNDS}`; cv.className = 'mzcv';
     img = new Image(); img.onload = draw; img.src = ALL[answer];
@@ -1149,10 +1202,10 @@ games.mosaic = (() => {
     if (i === answer){ score += p; $('#mz-score').textContent = score; b.classList.add('ok'); cv.classList.add('ok'); }
     else { b.classList.add('no'); cv.classList.add('no'); $(`#mz-choices button[data-i="${answer}"]`).classList.add('ok'); }
     setTimeout(() => { round++; if (round < ROUNDS) next(); else {
-      $('#mz-winmsg').textContent = `${ROUNDS}문제 · ${score}점 (최대 ${ROUNDS*10}점)`; rank.add('mosaic', score); $('#mz-win').classList.add('show'); } }, 1300);
+      $('#mz-winmsg').textContent = `${ROUNDS}문제 · ${score}점 (최대 ${ROUNDS*10}점)`; rank.add('mosaic', score); $('#mz-win').classList.add('show'); K.save({ msg: $('#mz-winmsg').textContent, pics: order }); } }, 1300);
   }
-  $('#mz-again').onclick = start;
-  return { enter(){ size(); if (!built) start(); }, resize: size, leave(){ clearInterval(tick); if (built && !busy && round < ROUNDS) built = false; } };
+  $('#mz-again').onclick = () => { K.drop(); start(); };
+  return { enter(){ size(); if (!built){ built = true; if (!K.show()) start(); } }, resize: size, leave(){ clearInterval(tick); if (built && !busy && round < ROUNDS) built = false; } };
 })();
 
 /* ---------- SEEN ---------- */
@@ -1222,13 +1275,14 @@ games.scratch = (() => {
       tot++; if (data[(py * cv.width + px) * 4 + 3] < 128) clear++; }
     const pct = Math.round(clear / tot * 100); $('#sc-pct').textContent = pct + '%';
     if (pct >= 60 && !done){ done = true; down = false; cv.style.transition = 'opacity .8s'; cv.style.opacity = 0; $('#sc-pct').textContent = '100%';
-      $('#sc-win').classList.add('show'); }
+      $('#sc-win').classList.add('show'); K.save({ msg: '오늘의 행운은 선우예요', pics: [idx] }); }
   }
   cv.addEventListener('pointerdown', e => { if (done) return; e.preventDefault(); down = true; last = null; try { cv.setPointerCapture(e.pointerId); } catch(_){} scratch(pt(e)); });
   cv.addEventListener('pointermove', e => { if (down && !done) scratch(pt(e)); });
   ['pointerup','pointercancel'].forEach(t => cv.addEventListener(t, () => { down = false; last = null; if (!done) check(); }));
-  $('#sc-new').onclick = newCard; $('#sc-again').onclick = newCard;
-  return { enter(){ size(); if (!built) newCard(); }, resize: size };
+  const K = Keeper('scratch', { redo: () => newCard(), finished: true });
+  $('#sc-new').onclick = () => { K.drop(); newCard(); }; $('#sc-again').onclick = () => { K.drop(); newCard(); };
+  return { enter(){ size(); if (!built){ if (K.show()) built = true; else newCard(); } }, resize: size };
 })();
 
 /* ---------- SILHOUETTE ---------- */
@@ -1236,7 +1290,8 @@ games.shadow = (() => {
   const ROUNDS = 8, DUR = 10000;
   let order = [], round = 0, score = 0, answer = 0, t0 = 0, raf = null, busy = false, built = false;
   function size(){ const w = Math.min(vw()-32, 420); ['#sh-view','#sh-choices','#sh-barw'].forEach(s => $(s).style.setProperty('--w', w+'px')); }
-  function start(){ built = true; order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#sh-score').textContent = 0; $('#sh-win').classList.remove('show'); next(); }
+  const K = Keeper('shadow', { redo: () => start(), finished: true });
+  function start(){ built = true; K.hide(); order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#sh-score').textContent = 0; $('#sh-win').classList.remove('show'); next(); }
   function next(){
     busy = false; answer = order[round]; $('#sh-round').textContent = `${round+1}/${ROUNDS}`;
     const v = $('#sh-view'); v.className = 'qphoto shview'; v.style.backgroundImage = `url(${ALL[answer]})`;
@@ -1253,10 +1308,10 @@ games.shadow = (() => {
     if (i === answer){ score += Math.max(1, Math.round(10 * (1 - p))); $('#sh-score').textContent = score; b.classList.add('ok'); v.classList.add('ok'); }
     else { b.classList.add('no'); v.classList.add('no'); $(`#sh-choices button[data-i="${answer}"]`).classList.add('ok'); }
     setTimeout(() => { round++; if (round < ROUNDS) next(); else {
-      $('#sh-winmsg').textContent = `${ROUNDS}문제 · ${score}점 (최대 ${ROUNDS*10}점)`; rank.add('shadow', score); $('#sh-win').classList.add('show'); } }, 1500);
+      $('#sh-winmsg').textContent = `${ROUNDS}문제 · ${score}점 (최대 ${ROUNDS*10}점)`; rank.add('shadow', score); $('#sh-win').classList.add('show'); K.save({ msg: $('#sh-winmsg').textContent, pics: order }); } }, 1500);
   }
-  $('#sh-again').onclick = start;
-  return { enter(){ size(); if (!built) start(); }, resize: size };
+  $('#sh-again').onclick = () => { K.drop(); start(); };
+  return { enter(){ size(); if (!built){ built = true; if (!K.show()) start(); } }, resize: size };
 })();
 
 /* ---------- FLIP (누르면 십자 모양으로 뒤집혀요) ---------- */
@@ -1264,6 +1319,7 @@ games.flip = (() => {
   let N = 3, img = 0, on = [], moves = 0, solved = false, built = false, tiles = [];
   const timer = Timer('#fl-time');
   makePicker('#fl-picker', i => { img = i; build(); });
+  const K = Keeper('flip', { redo: () => build(), next: () => { img = (img + 1) % ALL.length; build(); } });
   function size(){ const W = Math.floor(Math.min(vw() - 32, 460)); $('#fl-grid').style.setProperty('--w', W+'px'); }
   function paint(){ tiles.forEach((t, k) => t.classList.toggle('off', !on[k])); $('#fl-left').textContent = on.filter(v => !v).length; }
   function press(k, count = true){
@@ -1286,15 +1342,16 @@ games.flip = (() => {
       b.style.backgroundPosition = `${(k%N)/(N-1)*100}% ${Math.floor(k/N)/(N-1)*100}%`;
       b.setAttribute('aria-label', `${Math.floor(k/N)+1}행 ${k%N+1}열`); b.onclick = () => tap(k); g.appendChild(b); tiles.push(b);
     }
-    paint(); size();
+    paint(); size(); K.at(`${img}-${N}`); K.hide(); markDone('#fl-picker', K, N);
+    if (K.rec()){ on.fill(true); paint(); solved = true; g.classList.add('solved'); K.show(); }
   }
   function tap(k){
     if (solved) return; timer.start(); press(k); paint();
     if (on.every(Boolean)){ solved = true; timer.stop(); setTimeout(() => $('#fl-grid').classList.add('solved'), 250);
-      $('#fl-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · ${moves}번 누름`; rank.add('flip', timer.sec(), N); $('#fl-win').classList.add('show'); }
+      $('#fl-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · ${moves}번 누름`; rank.add('flip', timer.sec(), N); $('#fl-win').classList.add('show'); K.save({ msg: $('#fl-winmsg').textContent }); markDone('#fl-picker', K, N); }
   }
   $$('#fl-sizes button').forEach(b => b.onclick = () => build(+b.dataset.n));
-  $('#fl-restart').onclick = () => build(); $('#fl-again').onclick = () => { img = (img + 1) % ALL.length; build(); };
+  $('#fl-restart').onclick = () => { K.drop(); build(); }; $('#fl-again').onclick = () => { img = (img + 1) % ALL.length; build(); };
   return { enter(){ if (!built){ img = Math.floor(Math.random() * ALL.length); build(3); } }, resize(){ if (built) size(); } };
 })();
 
@@ -1303,6 +1360,7 @@ games.swap = (() => {
   let N = 3, img = 0, pos = [], sel = -1, moves = 0, solved = false, built = false, tiles = [];
   const timer = Timer('#sw-time');
   makePicker('#sw-picker', i => { img = i; build(); });
+  const K = Keeper('swap', { redo: () => build(), next: () => { img = (img + 1) % ALL.length; build(); } });
   function size(){ const W = Math.floor(Math.min(vw() - 32, 460)); $('#sw-grid').style.setProperty('--w', W+'px'); }
   function paint(){
     tiles.forEach((b, slot) => { const p = pos[slot];
@@ -1319,7 +1377,8 @@ games.swap = (() => {
       const b = document.createElement('button'); b.className = 'swtile'; b.style.backgroundImage = `url(${ALL[img]})`; b.style.backgroundSize = `${N*100}% ${N*100}%`;
       b.setAttribute('aria-label', `조각 ${s+1}`); b.onclick = () => tap(s); g.appendChild(b); tiles.push(b);
     }
-    paint(); size();
+    paint(); size(); K.at(`${img}-${N}`); K.hide(); markDone('#sw-picker', K, N);
+    if (K.rec()){ pos = [...Array(N*N).keys()]; paint(); solved = true; g.classList.add('solved'); K.show(); }
   }
   function tap(s){
     if (solved) return; timer.start();
@@ -1327,10 +1386,10 @@ games.swap = (() => {
     if (sel === s){ sel = -1; paint(); return; }
     [pos[sel], pos[s]] = [pos[s], pos[sel]]; sel = -1; moves++; $('#sw-moves').textContent = moves; paint();
     if (pos.every((p, i) => p === i)){ solved = true; timer.stop(); setTimeout(() => $('#sw-grid').classList.add('solved'), 250);
-      $('#sw-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · ${moves}번 바꿈`; rank.add('swap', timer.sec(), N); $('#sw-win').classList.add('show'); }
+      $('#sw-winmsg').textContent = `${N}×${N} · ${fmt(timer.sec())} · ${moves}번 바꿈`; rank.add('swap', timer.sec(), N); $('#sw-win').classList.add('show'); K.save({ msg: $('#sw-winmsg').textContent }); markDone('#sw-picker', K, N); }
   }
   $$('#sw-sizes button').forEach(b => b.onclick = () => build(+b.dataset.n));
-  $('#sw-restart').onclick = () => build(); $('#sw-again').onclick = () => { img = (img + 1) % ALL.length; build(); };
+  $('#sw-restart').onclick = () => { K.drop(); build(); }; $('#sw-again').onclick = () => { img = (img + 1) % ALL.length; build(); };
   return { enter(){ if (!built){ img = Math.floor(Math.random() * ALL.length); build(3); } }, resize(){ if (built) size(); } };
 })();
 
@@ -1348,7 +1407,8 @@ games.order = (() => {
     }
     return shuffle([...ALL.keys()]).slice(0, 4);
   }
-  function start(){ built = true; round = 0; score = 0; $('#o-score').textContent = 0; $('#o-win').classList.remove('show'); next(); }
+  const K = Keeper('order', { redo: () => start(), finished: true });
+  function start(){ built = true; K.hide(); round = 0; score = 0; $('#o-score').textContent = 0; $('#o-win').classList.remove('show'); next(); }
   function next(){
     done = false; picked = []; set = choose(); $('#o-round').textContent = `${round+1}/${ROUNDS}`;
     $('#o-msg').textContent = ''; $('#o-next').style.visibility = 'hidden';
@@ -1377,21 +1437,23 @@ games.order = (() => {
     $('#o-next').textContent = round+1 < ROUNDS ? '다음 문제' : '결과 보기'; $('#o-next').style.visibility = 'visible';
   }
   $('#o-next').onclick = () => { round++; if (round < ROUNDS) next(); else {
-    $('#o-next').style.visibility = 'hidden'; $('#o-winmsg').textContent = `${ROUNDS*4}개 중 ${score}개 맞았어요`; rank.add('order', score); $('#o-win').classList.add('show'); } };
-  $('#o-again').onclick = start;
-  return { enter(){ size(); if (!built) start(); }, resize: size };
+    $('#o-next').style.visibility = 'hidden'; $('#o-winmsg').textContent = `${ROUNDS*4}개 중 ${score}개 맞았어요`; rank.add('order', score); $('#o-win').classList.add('show'); K.save({ msg: $('#o-winmsg').textContent }); } };
+  $('#o-again').onclick = () => { K.drop(); start(); };
+  return { enter(){ size(); if (!built){ built = true; if (!K.show()) start(); } }, resize: size };
 })();
 
 /* ---------- HALVES ---------- */
 games.halves = (() => {
   let N = 4, pick = null, found = 0, miss = 0, built = false, lock = false;
   const timer = Timer('#h-time');
+  const K = Keeper('halves', { redo: () => build(), finished: true });
   function size(){ const w = Math.min(vw()-32, 480); ['#h-top','#h-bot','#h-done'].forEach(s => $(s).style.setProperty('--w', w+'px'));
     $$('.hlabel').forEach(l => l.style.setProperty('--w', w+'px')); }
   function build(n = N){
     N = n; built = true; pick = null; found = 0; miss = 0; lock = false; timer.reset();
     $('#h-miss').textContent = 0; $('#h-found').textContent = `0/${N}`; $('#h-win').classList.remove('show'); $('#h-done').innerHTML = '';
     pressed('#h-sizes','n',N); size(); rank.view('halves', N);
+    K.at(N); K.hide(); if (K.show()) return;
     const ids = shuffle([...ALL.keys()]).slice(0, N), cols = N === 4 ? 2 : 3;
     ['#h-top','#h-bot'].forEach((sel, side) => {
       const g = $(sel); g.innerHTML = ''; g.style.setProperty('--cols', cols);
@@ -1408,14 +1470,15 @@ games.halves = (() => {
       pick.classList.remove('pick'); pick.classList.add('done'); b.classList.add('done');
       const d = document.createElement('div'); d.style.backgroundImage = `url(${ALL[+b.dataset.i]})`; $('#h-done').appendChild(d);
       pick = null; found++; $('#h-found').textContent = `${found}/${N}`;
-      if (found === N){ timer.stop(); $('#h-winmsg').textContent = `${N}장 · ${fmt(timer.sec())} · 실수 ${miss}번`; rank.add('halves', timer.sec(), N); $('#h-win').classList.add('show'); }
+      if (found === N){ timer.stop(); $('#h-winmsg').textContent = `${N}장 · ${fmt(timer.sec())} · 실수 ${miss}번`; rank.add('halves', timer.sec(), N); $('#h-win').classList.add('show');
+        K.save({ msg: $('#h-winmsg').textContent, pics: $$('#h-top .half').map(b => +b.dataset.i) }); }
     } else {
       miss++; $('#h-miss').textContent = miss; b.classList.remove('no'); void b.offsetWidth; b.classList.add('no');
       lock = true; setTimeout(() => { b.classList.remove('no'); lock = false; }, 400);
     }
   }
   $$('#h-sizes button').forEach(b => b.onclick = () => build(+b.dataset.n));
-  $('#h-restart').onclick = () => build(); $('#h-again').onclick = () => build();
+  $('#h-restart').onclick = () => { K.drop(); build(); }; $('#h-again').onclick = () => { K.drop(); build(); };
   return { enter(){ if (!built) build(4); }, resize(){ if (built) size(); } };
 })();
 
@@ -1569,13 +1632,14 @@ games.breakout = (() => {
     ctx.fillText('아쉬워요! 다시 해 볼까요?', W/2, H*0.42 + 36); }
   function win(){ running = false; ball = null; revealed = true; draw(); rank.add('breakout', bscore());
     ctx.fillStyle = '#fff'; ctx.font = '700 24px "Gowun Dodum", sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎉 선우 완성!', W/2, W + (H-W)/2 + 8); party.go();
-    $('#b-start').textContent = '한 번 더'; $('#b-start').style.visibility = 'visible'; }
+    $('#b-start').textContent = '한 번 더'; $('#b-start').style.visibility = 'visible'; K.save({ msg: `벽돌을 다 깼어요! ${bscore()}점`, pics: [imgIdx] }); }
   function aim(e){ const r = cv.getBoundingClientRect(); paddle.x = Math.min(1 - paddle.w/2, Math.max(paddle.w/2, (e.clientX - r.left) / r.width)); if (!running) draw(); }
   cv.addEventListener('pointermove', aim); cv.addEventListener('pointerdown', e => { aim(e); if (!running && $('#b-start').style.visibility !== 'hidden' && ball === null && bricks.some(b=>b.alive) && lives > 0) start(); });
-  $('#b-start').onclick = () => { if (revealed) newPhoto(); start(); };
+  $('#b-start').onclick = () => { if (revealed){ K.drop(); newPhoto(); } start(); };
   $('#b-new').onclick = newPhoto;
   let built = false;
-  return { enter(){ size(); if (!built){ built = true; newPhoto(); } }, resize: size,
+  const K = Keeper('breakout', { redo: () => newPhoto(), finished: true });
+  return { enter(){ size(); if (!built){ built = true; if (!K.show()) newPhoto(); } }, resize: size,
     leave(){ if (running){ running = false; cancelAnimationFrame(raf); $('#b-start').textContent = '계속하기'; $('#b-start').style.visibility = 'visible'; } } };
 })();
 
@@ -1585,7 +1649,8 @@ games.month = (() => {
   const M = DATA.dates.map(s => new Date(s).getMonth() + 1);
   const months = [...new Set(M)].sort((a,b) => a-b);
   function size(){ ['#q-photo','#q-opts'].forEach(s => $(s).style.setProperty('--w', Math.min(vw()-32, 400)+'px')); }
-  function start(){ built = true; order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#q-score').textContent = 0; $('#q-win').classList.remove('show'); next(); }
+  const K = Keeper('month', { redo: () => start(), finished: true });
+  function start(){ built = true; K.hide(); order = shuffle([...ALL.keys()]).slice(0, ROUNDS); round = 0; score = 0; $('#q-score').textContent = 0; $('#q-win').classList.remove('show'); next(); }
   function next(){
     busy = false; const i = order[round], ans = M[i]; $('#q-round').textContent = `${round+1}/${ROUNDS}`;
     $('#q-photo').style.backgroundImage = `url(${ALL[i]})`;
@@ -1598,10 +1663,10 @@ games.month = (() => {
     if (busy) return; busy = true;
     if (m === ans){ score++; $('#q-score').textContent = score; b.classList.add('ok'); }
     else { b.classList.add('no'); [...$('#q-opts').children].find(x => x.textContent === `${ans}월`).classList.add('ok'); }
-    setTimeout(() => { round++; if (round < ROUNDS) next(); else { $('#q-winmsg').textContent = `${ROUNDS}문제 중 ${score}개 맞혔어요`; rank.add('month', score); $('#q-win').classList.add('show'); } }, 1200);
+    setTimeout(() => { round++; if (round < ROUNDS) next(); else { $('#q-winmsg').textContent = `${ROUNDS}문제 중 ${score}개 맞혔어요`; rank.add('month', score); $('#q-win').classList.add('show'); K.save({ msg: $('#q-winmsg').textContent, pics: order }); } }, 1200);
   }
-  $('#q-again').onclick = start;
-  return { enter(){ size(); if (!built) start(); }, resize: size };
+  $('#q-again').onclick = () => { K.drop(); start(); };
+  return { enter(){ size(); if (!built){ built = true; if (!K.show()) start(); } }, resize: size };
 })();
 
 /* ---------- GUESTBOOK ---------- */
@@ -1718,7 +1783,7 @@ const party = (() => {
     if (el.classList.contains('show')){ if (!seen.has(el)){ seen.add(el); go(); } }
     else seen.delete(el);
   }));
-  document.querySelectorAll('.win:not(#w-win):not(#d-win):not(#sn-win):not(#n-done)').forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
+  document.querySelectorAll('.win:not(#w-win):not(#d-win):not(#sn-win):not(#n-done):not(.done-panel)').forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['class'] }));
   return { go };
 })();
 
