@@ -101,7 +101,7 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
 .ng-box input{font:inherit;font-size:18px;text-align:center;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
 .hi{font-size:14px;color:var(--muted);margin:-4px 0 10px;text-align:center}
 .hi b{color:var(--ink)} .hi button{font:inherit;font-size:13px;background:none;border:0;color:var(--ink);text-decoration:underline;cursor:pointer;padding:2px 4px}
-.rank{width:min(100%,360px);margin:0 auto 12px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:8px 14px;font-size:14px}
+.rank{width:min(100%,440px);margin:0 auto 12px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:8px 14px;font-size:14px}
 .rank[hidden]{display:none}
 .rk-h{font-size:13px;color:var(--muted);margin-bottom:4px;text-align:center}
 .rk-row{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:6px;padding:3px 0}
@@ -110,6 +110,9 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(
 .rk-s{font-variant-numeric:tabular-nums;color:var(--ink)}
 .rk-old b{color:var(--muted)} .rk-old .rk-s{color:var(--muted)}
 .rk-n{text-align:center;font-size:13px;font-weight:700;color:var(--muted)}
+/* 2열 3행: 왼쪽 1~3등, 오른쪽 4~6등 */
+.rk-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,auto);grid-auto-flow:column;column-gap:14px}
+.rk-list .rk-row{grid-template-columns:22px minmax(0,1fr) auto;gap:4px;font-size:13px}
 .rk-empty{text-align:center;color:var(--muted);padding:2px 0 4px}
 
 /* mosaic / seen / scratch */
@@ -676,8 +679,8 @@ const rank = (() => {
     const v = cur[g], key = v == null ? g : `${g}-${v}`, lower = RK[g].lower, best = new Map();
     // 게임이 업데이트되면(GAME_VER) 새 버전 기록만 순위에 올라가요. 새 기록이 없을 땐 이전 버전 1등을 '옛날 1등'으로 보여 줘요
     const GV = GAME_VER[g] || 1, mine = recs.filter(o => o.g === key), better = (x, y) => lower ? x < y : x > y;
-    // 한 사람이 여러 칸을 차지할 수 있는 TOP 5. 기록이 같으면 나중에 세운 기록이 위(recs는 최신순, sort는 안정 정렬)
-    const top = mine.filter(o => (o.v || 1) === GV).map(o => [o.n, o.s]).sort((a, b) => lower ? a[1] - b[1] : b[1] - a[1]).slice(0, 5);
+    // 한 사람이 여러 칸을 차지할 수 있는 TOP 6. 기록이 같으면 나중에 세운 기록이 위(recs는 최신순, sort는 안정 정렬)
+    const top = mine.filter(o => (o.v || 1) === GV).map(o => [o.n, o.s]).sort((a, b) => lower ? a[1] - b[1] : b[1] - a[1]).slice(0, 6);
     let legend = null;
     if (!top.length){ const old = mine.filter(o => (o.v || 1) < GV);
       if (old.length){ const pv = Math.max(...old.map(o => o.v || 1));
@@ -689,11 +692,11 @@ const rank = (() => {
       const t = document.createElement('span'); t.className = 'rk-s'; t.textContent = label(g, legend.s); d.append(m, b, t); box.appendChild(d);
       const e = document.createElement('div'); e.className = 'rk-empty'; e.textContent = '게임이 바뀌었어요! 새 1등이 나오면 옛날 1등은 물러나요'; box.appendChild(e); return; }
     if (!top.length){ const e = document.createElement('div'); e.className = 'rk-empty'; e.textContent = lastLoad ? '아직 기록이 없어요. 1등을 차지해 보세요!' : '불러오는 중…'; box.appendChild(e); return; }
-    const me = ME.get();
+    const me = ME.get(), list = document.createElement('div'); list.className = 'rk-list'; box.appendChild(list);
     top.forEach(([n, s], i) => { const d = document.createElement('div'); d.className = 'rk-row' + (n === me ? ' me' : '');
       const m = document.createElement('span'); m.textContent = ['🥇','🥈','🥉'][i] || `${i+1}`; if (i > 2) m.className = 'rk-n';
       const b = document.createElement('b'); b.textContent = n; const t = document.createElement('span'); t.className = 'rk-s'; t.textContent = label(g, s);
-      d.append(m, b, t); box.appendChild(d); });
+      d.append(m, b, t); list.appendChild(d); });
   }
   function view(g, v){ cur[g] = v; render(g); load().then(() => render(g)); }
   async function add(g, s, v){
